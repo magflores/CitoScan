@@ -1,0 +1,39 @@
+/* Reset mínimo */
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"; color: #222; background: #fff; }
+
+
+.container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+
+/* Header */
+.cs-header { height: 72px; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; }
+.cs-brand { display: flex; align-items: center; gap: 12px; }
+.cs-logo { width: 48px; height: 48px; border-radius: 999px; object-fit: cover; }
+.cs-brand-name { font-size: 32px; font-weight: 600; letter-spacing: 0.3px; }
+
+
+.cs-actions { display: flex; gap: 16px; }
+.cs-btn { text-decoration: none; padding: 10px 18px; border-radius: 999px; border: 1px solid #e5e7eb; color: #111; background: #fff; display: inline-flex; align-items: center; justify-content: center; }
+.cs-btn:hover { filter: brightness(0.97); }
+.cs-btn-outline { background: #fff; }
+.cs-btn-muted { background: #e9eaec; border-color: #e9eaec; }
+
+
+.cs-divider { border: 0; border-top: 1px solid #e5e7eb; margin: 0; }
+
+
+/* Main */
+.cs-main { padding: 24px; }
+.cs-section { margin: 28px 0; max-width: 980px; }
+.cs-h2 { font-size: 20px; margin: 0 0 8px 0; font-weight: 600; }
+.cs-p { margin: 0; line-height: 1.8; color: #555; }
+
+
+/* Responsive */
+@media (max-width: 640px) {
+  .cs-brand-name { font-size: 24px; }
+  .cs-actions { gap: 8px; }
+  .cs-btn { padding: 8px 14px; }
+}

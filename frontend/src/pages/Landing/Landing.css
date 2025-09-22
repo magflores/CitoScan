@@ -1,0 +1,12 @@
+.container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+.landing__divider { border: 0; border-top: 1px solid #e5e7eb; margin: 0; }
+.landing__main { padding: 24px; }
+.section { margin: 28px 0; max-width: 980px; }
+.section__title { font-size: 20px; margin: 0 0 8px 0; font-weight: 600; }
+.section__p { margin: 0; line-height: 1.8; color: #555; }
+
+
+@media (max-width: 640px) {
+    .hdr__name { font-size: 24px; }
+    .hdr__actions { gap: 8px; }
+}
