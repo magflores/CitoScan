@@ -1,8 +1,16 @@
 import React from "react";
+import { Routes, Route } from "react-router-dom";
 import Landing from "./pages/Landing/Landing.jsx";
-import "./App.css";
+import Login from "./pages/Auth/Login/Login.jsx";
+import NotFound from "./pages/NotFound/NotFound.jsx";
 
 
 export default function App() {
-    return <Landing />;
+    return (
+        <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="*" element={<NotFound />} />
+        </Routes>
+    );
 }

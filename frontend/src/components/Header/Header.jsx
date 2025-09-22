@@ -12,8 +12,9 @@ export default function Header() {
                 <span className="hdr__name">CitoScan</span>
             </div>
             <nav className="hdr__actions">
-                <Button to="/login" variant="outline">Iniciar sesión</Button>
-                <Button to="/register" variant="muted">Registrarse</Button>
+                <Button to="/login" variant="outline" tone="pink">Iniciar sesión</Button>
+                <Button to="/register" variant="muted"  tone="blue">Registrarse</Button>
+
             </nav>
         </header>
     );

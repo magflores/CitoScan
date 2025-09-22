@@ -1,5 +1,33 @@
-.hdr { height: 72px; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; }
-.hdr__brand { display: flex; align-items: center; gap: 12px; }
-.hdr__logo { width: 48px; height: 48px; border-radius: 999px; object-fit: cover; }
-.hdr__name { font-size: 32px; font-weight: 600; letter-spacing: 0.3px; }
-.hdr__actions { display: flex; gap: 16px; }
+.hdr {
+    height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.hdr__brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.hdr__logo {
+    width: 48px;
+    height: 48px;
+    border-radius: 999px;
+    object-fit: cover;
+    box-shadow: 0 0 0 1.2px rgba(0,0,0,.06);
+}
+
+.hdr__name {
+    font-size: 32px;
+    font-weight: 400;
+    letter-spacing: 0.3px;
+}
+
+.hdr__actions {
+    display: flex;
+    gap: 16px;
+}

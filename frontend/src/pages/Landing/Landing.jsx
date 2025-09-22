@@ -7,7 +7,6 @@ export default function Landing() {
     return (
         <div className="landing">
             <Header />
-            <hr className="landing__divider" />
             <main className="landing__main container">
                 <section className="section">
                     <h2 className="section__title">¿Qué es CitoScan?</h2>
