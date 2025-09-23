@@ -40,3 +40,5 @@
 .fi__input:not(:placeholder-shown) + .fi__label {
     transform: translateY(-150%) translateX(-8%) scale(.85); color: #6b7280;
 }
+
+.fi--area .fi__input { padding-top: 20px; min-height: 96px; resize: vertical; }

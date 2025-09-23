@@ -19,7 +19,7 @@
     height: 96px;
     border-radius: 999px;
     object-fit: cover;
-    box-shadow: 0 0 0 1px rgba(0,0,0,.06);
+    box-shadow: 0 0 0 1.2px rgba(0,0,0,.06);
 }
 
 .login__title {
