@@ -31,24 +31,33 @@
 .login__fields {
     width: 100%;
     margin-top: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
 }
+
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field-error { font-size: 13px; color: #9b1c1c; }
 
 .login__link {
     color: #4b5563;
     text-decoration: underline;
 }
+.login__link:hover { color: #111827; }
 
-.login__link:hover {
-    color: #111827;
+.login__actions {
+    display: grid;
+    grid-template-columns: max-content;
+    justify-content: center;
+    row-gap: 12px;
+    margin-top: 16px;
 }
+
+.login__actions .login__submit { width: 100%; }
+
+.login__foot { color: #4b5563; text-align: center; }
 
 .login__submit {
-    width: 100%;
-    margin-top: 6px;
     border-radius: 999px;
     padding: 14px 18px;
-}
-
-.login__foot {
-    color: #4b5563;
 }

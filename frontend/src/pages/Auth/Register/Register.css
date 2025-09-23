@@ -25,6 +25,7 @@
     grid-template-columns: max-content;
     justify-content: center;
     row-gap: 12px;
+    margin-top: 16px;
 }
 
 .reg__actions .reg__submit { width: 100%; }

@@ -188,7 +188,7 @@ export default function Register() {
                     <Button
                         type="submit"
                         variant="muted"
-                        tone="blue"
+                        tone="pink"
                         disabled={!canSubmit}
                         className="reg__submit"
                     >
