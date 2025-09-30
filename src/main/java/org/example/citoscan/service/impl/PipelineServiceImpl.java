@@ -2,10 +2,10 @@ package org.example.citoscan.service.impl;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import lombok.Value;
 import org.example.citoscan.model.PipelineSession;
 import org.example.citoscan.repository.PipelineSessionRepository;
 import org.example.citoscan.service.PipelineService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -26,10 +26,10 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class PipelineServiceImpl implements PipelineService {
 
-    @Value("${pipeline.root:/opt/pipeline_aptitud}")
+    @Value("${pipeline.root}")
     private String pipelineRoot;
 
-    @Value("${pipeline.venv:/opt/pipeline_aptitud/venv/bin/python}")
+    @Value("${pipeline.venv}")
     private String pythonBin;
 
     private final PipelineSessionRepository repo;
