@@ -184,66 +184,107 @@ def main():
     run(apt_cmd)
 
     # -------------------------- 05 - Cells (opcional)
-    cells = cfg.get("cells", {})
-    cells_enabled = cells.get("enabled", True)
+    cell_stats = {}
+    t_cell_s = time.time()
+
+    cells_cfg = cfg.get("cells") or {}
+    if not isinstance(cells_cfg, dict):
+        cells_cfg = {}
+
+    cells_enabled = cells_cfg.get("enabled", True)
     if args.cells_enabled is not None:
         cells_enabled = (str(args.cells_enabled).lower() in ("1","true","yes","y","on"))
 
     cells_stats_path = reports_dir / "cells_stats.json"
     if cells_enabled:
-        in_dir  = apt_dir if cells.get("source", "apto") == "apto" else bg_dir
-        out_dir = cells_dir
+        source = (args.cells_source or cells_cfg.get("source", "apto")).lower()
+        if source == "apto":
+            in_dir = apt_dir / "apto"
+        elif source in ("nofondo", "no_fondo"):
+            in_dir = bg_dir / "no_fondo"
+        elif source in ("fondo", "bg_fondo"):
+            in_dir = bg_dir / "fondo"
+        elif source in ("bg_all", "bg"):
+            in_dir = bg_dir
+        else:
+            in_dir = apt_dir / "apto"
+
+        out_dir = cells_dir / source
         ensure_dir(out_dir)
 
-        img_size = cells.get("img_size", None)
+        img_size = cells_cfg.get("img_size", None)
         if args.cells_img_size:
             img_size = args.cells_img_size
 
-        link_strategy_cells = cells.get("link_strategy", "symlink")
-        if args.cells_link: link_strategy_cells = args.cells_link
-        cells_batch = cells.get("infer_batch", 256)
-        if args.cells_batch is not None: cells_batch = int(args.cells_batch)
-        cells_threshold = cells.get("threshold", 0.5)
-        if args.cells_threshold is not None: cells_threshold = float(args.cells_threshold)
+        link_strategy_cells = cells_cfg.get("link_strategy", "symlink")
+        if args.cells_link:
+            link_strategy_cells = args.cells_link
+        cells_batch = int(args.cells_batch) if args.cells_batch is not None else int(cells_cfg.get("infer_batch", 16))
+        cells_threshold = float(args.cells_threshold) if args.cells_threshold is not None else float(cells_cfg.get("threshold", cells_cfg.get("conf", 0.25)))
+        iou = str(cells_cfg.get("iou", 0.45))
+        imgsz = str(cells_cfg.get("imgsz", img_size or 640))
 
-        if cells.get("type", "cls") == "yolo":
-            cmd = [
-                PY(), "scripts/classify_cells_yolo.py",
-                "--in", str(in_dir),
-                "--out", str(out_dir),
-                "--weights", str(cells["weights"]),
-                "--imgsz", str(cells.get("imgsz", 640)),
-                "--conf", str(cells.get("conf", 0.25)),
-                "--iou", str(cells.get("iou", 0.45)),
-                "--batch-size", str(cells.get("infer_batch", 16)),
-                "--link-strategy", link_strategy_cells,
-                "--stats-out", str(cells_stats_path),
-            ]
-            if cells.get("classes"):
-                cmd += ["--classes"] + [str(c) for c in cells["classes"]]
-            if cells.get("save_annot", False):
-                cmd += ["--save-annot"]
-            if cells.get("by_class_links", False):
-                cmd += ["--by-class-links"]
-            if cells.get("stats_out"):
-                cmd += ["--stats-out", str(cells["stats_out"])]
+        has_imgs = in_dir.exists() and any(in_dir.rglob("*.[pj][pn]g"))
+        if not has_imgs:
+            print(f"[05] cell_cls: SKIPPED (no images in {in_dir})")
+            empty = {"processed": 0, "kept_pos": 0, "kept_neg": 0, "pos_ratio": 0.0}
+            ensure_dir(out_dir)
+            (out_dir / "stats.json").write_text(json.dumps(empty, indent=2), encoding="utf-8")
+            ensure_dir(reports_dir)
+            cells_stats_path.write_text(json.dumps(empty, indent=2), encoding="utf-8")
+            t_cell_e = time.time()
+            cell_processed = cell_pos = cell_neg = 0
+            cell_ratio = 0.0
         else:
-            cmd = [
-                PY(), "scripts/classify_cells.py",
-                "--in", str(in_dir),
-                "--out", str(out_dir),
-                "--yaml_file", str(cells["yaml_file"]),
-                "--stats-out", str(cells_stats_path),
-                "--link-strategy", link_strategy_cells,
-                "--batch-size", str(cells_batch),
-                "--threshold", str(cells_threshold)
-            ]
-            if cells.get("img_size"):
-                cmd += ["--img-size", str(cells["img_size"])]
-            if cells.get("stats_out"):
-                cmd += ["--stats-out", str(cells["stats_out"])]
+            if cells_cfg.get("type", "cls") == "yolo":
+                cmd = [
+                    PY(), "scripts/classify_cells_yolo.py",
+                    "--in", str(in_dir),
+                    "--out", str(out_dir),
+                    "--weights", str(cells_cfg["weights"]),
+                    "--imgsz", imgsz,
+                    "--conf", str(cells_threshold),
+                    "--iou", iou,
+                    "--batch-size", str(cells_batch),
+                    "--link-strategy", link_strategy_cells,
+                    "--stats-out", str(cells_stats_path),
+                ]
+                if cells_cfg.get("classes"):
+                    cmd += ["--classes"] + [str(c) for c in cells_cfg["classes"]]
+                if cells_cfg.get("save_annot", False):
+                    cmd += ["--save-annot"]
+                if cells_cfg.get("by_class_links", False):
+                    cmd += ["--by-class-links"]
+            else:
+                cmd = [
+                    PY(), "scripts/classify_cells.py",
+                    "--in", str(in_dir),
+                    "--out", str(out_dir),
+                    "--yaml_file", str(cells_cfg["yaml_file"]),
+                    "--checkpoint", str(cells_cfg["checkpoint"]),
+                    "--threshold", str(cells_threshold),
+                    "--batch-size", str(cells_batch),
+                    "--link-strategy", link_strategy_cells,
+                    "--stats-out", str(cells_stats_path),
+                ]
+                if img_size:
+                    cmd += ["--img-size", str(img_size)]
 
-        run(cmd)
+            run(cmd)
+
+            cells_stats = try_read_json(cells_stats_path, {}) or {}
+            t_cell_e = time.time()
+            cell_processed = int(cells_stats.get("processed", 0))
+            cell_pos = int(cells_stats.get("kept_pos", 0))
+            cell_neg = int(cells_stats.get("kept_neg", 0))
+            cell_ratio = float(cells_stats.get("pos_ratio", 0.0))
+            print(f"[05] cell_cls: {t_cell_e - t_cell_s:.2f}s | processed={cell_processed} "
+                  f"pos={cell_pos} neg={cell_neg} (ratio={cell_ratio}) | in={in_dir} | out={out_dir}")
+    else:
+        t_cell_e = time.time()
+        print("[05] cell_cls: SKIPPED (disabled)")
+        cell_processed = cell_pos = cell_neg = 0
+        cell_ratio = 0.0
 
     # -------------------------- Reporte unificado
     total = time.time() - t0
@@ -282,12 +323,12 @@ def main():
         "batch_size": apt_stats.get("batch_size")
       },
       "cells": {
-        "enabled": cells.get("enabled", True),
-        "source": cells.get("source", "apto"),
-        "threshold": cells.get("threshold", 0.5),
-        "link_strategy": cells.get("link_strategy", "symlink"),
-        "batch_size": cells.get("infer_batch", 256),
-        "img_size": cells.get("img_size", None),
+        "enabled": cells_cfg.get("enabled", False),
+        "source": cells_cfg.get("source", "apto"),
+        "threshold": cells_cfg.get("threshold", 0.5),
+        "link_strategy": cells_cfg.get("link_strategy", "symlink"),
+        "batch_size": cells_cfg.get("infer_batch", 256),
+        "img_size": cells_cfg.get("img_size", None),
         "stats": cells_stats
       }
     }
