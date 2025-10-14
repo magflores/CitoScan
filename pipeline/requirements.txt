@@ -1,0 +1,22 @@
+# --- Core scientific stack ---
+numpy>=1.24
+pandas
+scikit-learn>=1.3
+matplotlib
+
+# --- Deep Learning ---
+tensorflow>=2.14
+
+# --- Image processing ---
+opencv-python
+pillow>=10.0
+pyvips
+openslide-python>=1.3
+
+# --- Utilities ---
+tqdm
+pyyaml>=6.0
+joblib>=1.3
+
+# --- JSON / logging ---
+orjson
