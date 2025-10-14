@@ -3,7 +3,8 @@ import "./Register.css";
 import Button from "../../../components/Button/Button.jsx";
 import FloatInput from "../../../components/FloatInput/FloatInput.jsx";
 import logo from "../../../assets/citoIcon.svg";
-import { register as registerApi } from "../../../features/auth/api";
+import { register as registerApi, login as loginApi } from "../../../features/auth/api";
+import {useLocation, useNavigate} from "react-router-dom";
 
 const nameRegex = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ' -]+$/;
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -23,6 +24,10 @@ export default function Register() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [successMsg, setSuccessMsg] = useState("");
+
+    const navigate = useNavigate();
+    const loc = useLocation();
+    const redirectTo = loc.state?.from?.pathname || "/home";
 
     const setField = (name, value) => setForm((prev) => ({ ...prev, [name]: value }));
 
@@ -52,15 +57,26 @@ export default function Register() {
 
         try {
             setLoading(true);
-            const res = await registerApi({
+
+            await registerApi({
                 firstName: form.firstName.trim(),
                 lastName: form.lastName.trim(),
                 email: form.email.trim(),
                 password: form.password,
                 institution: form.institution.trim(),
             });
-            setSuccessMsg("¡Registro exitoso! Ya puedes iniciar sesión.");
-            setTimeout(() => { window.location.assign("/login"); }, 800);
+
+            const { data } = await loginApi({
+                email: form.email.trim(),
+                password: form.password,
+            });
+
+            if (data?.token) {
+                localStorage.setItem("auth_token", data.token);
+            }
+
+            setSuccessMsg("¡Cuenta creada! Ingresando…");
+            navigate(redirectTo, { replace: true });
         } catch (err) {
             setError(err?.message ?? "No se pudo completar el registro.");
         } finally {
