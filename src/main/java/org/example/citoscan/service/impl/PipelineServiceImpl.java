@@ -102,7 +102,6 @@ public class PipelineServiceImpl implements PipelineService {
 
     private Long currentUserId() {
         var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-        // TODO: ajustá este cast a tu implementación real:
         return ((AppUserDetails) auth.getPrincipal()).getId();
     }
 
@@ -183,6 +182,8 @@ public class PipelineServiceImpl implements PipelineService {
         s.setStartedAt(Instant.now());
         repo.save(s);
 
+        Long userId = s.getUserId();
+
         Path pipeRoot = root();
         Path logFile  = logsDir.resolve("pipeline.log");
         Path report   = reportsDir.resolve("pipeline_report.json");
@@ -192,8 +193,9 @@ public class PipelineServiceImpl implements PipelineService {
             int exit;
 
             if ("wsl".equalsIgnoreCase(execMode)) {
-                String wslCwd    = toWslPath(pipeRoot);
-                String wslConfig = toWslPath(pipeRoot.resolve("configs").resolve("defaults.yaml"));
+                String wslCwd      = toWslPath(pipeRoot);
+                String wslConfig   = toWslPath(pipeRoot.resolve("configs").resolve("defaults.yaml"));
+                String wslSessDir  = toWslPath(sessionDir);
 
                 List<String> inner = new ArrayList<>();
                 inner.add("cd " + shQuote(wslCwd));
@@ -202,12 +204,16 @@ public class PipelineServiceImpl implements PipelineService {
                 StringBuilder pyCmd = new StringBuilder();
                 pyCmd.append(shQuote(wslPython)).append(" scripts/run_pipeline.py");
                 pyCmd.append(" --session_id ").append(id);
+                pyCmd.append(" --user_id ").append(userId);
+                pyCmd.append(" --session_dir ").append(shQuote(wslSessDir));
                 pyCmd.append(" --config ").append(shQuote(wslConfig));
+
                 opts.forEach((k, v) -> {
                     if (k != null && v != null) {
                         pyCmd.append(" --").append(k).append(" ").append(shQuote(v));
                     }
                 });
+
                 inner.add(pyCmd.toString());
                 String bashCmd = String.join(" && ", inner);
 
@@ -236,10 +242,11 @@ public class PipelineServiceImpl implements PipelineService {
                 if (bin == null || bin.isBlank()) bin = "python3";
                 cmd.add(bin);
                 cmd.add(runner.toString());
-                cmd.add("--session_id");
-                cmd.add(String.valueOf(id));
-                cmd.add("--config");
-                cmd.add(cfg);
+                cmd.add("--session_id");   cmd.add(String.valueOf(id));
+                cmd.add("--user_id");      cmd.add(String.valueOf(userId));
+                cmd.add("--session_dir");  cmd.add(sessionDir.toString());
+                cmd.add("--config");       cmd.add(cfg);
+
                 opts.forEach((k, v) -> {
                     if (k != null && v != null) {
                         cmd.add("--" + k);

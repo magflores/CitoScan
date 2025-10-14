@@ -134,6 +134,7 @@ export default function Home() {
 
     return (
         <>
+            {/*@TODO: Update view to show results*/}
             <Header mode="auth" />
             <div className="home">
                 <p className="home__lead">Empezá tu análisis</p>
@@ -161,6 +162,7 @@ export default function Home() {
                                 />
                                 {loadingPreview && (
                                     <div className="dropzone__previewLoader">
+                                        {/*@TODO: fix size of loaderGif*/}
                                         <img src={loaderGif} alt="" />
                                         <span>Cargando vista previa...</span>
                                     </div>
@@ -241,6 +243,7 @@ export default function Home() {
                         </div>
                     )}
 
+                    {/*@TODO: fix size of loaderGif*/}
                     {uploading && (
                         <div className="home__uploading">
                             <img src={loaderGif} alt="" />
