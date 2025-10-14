@@ -3,6 +3,7 @@ package org.example.citoscan.service.impl;
 import lombok.RequiredArgsConstructor;
 import org.example.citoscan.model.PipelineSession;
 import org.example.citoscan.repository.PipelineSessionRepository;
+import org.example.citoscan.security.AppUserDetails;
 import org.example.citoscan.service.PipelineService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
@@ -40,6 +41,71 @@ public class PipelineServiceImpl implements PipelineService {
 
     private final PipelineSessionRepository repo;
 
+    private static final long MAX_SIZE = 5L * 1024 * 1024 * 1024; // 5 GB
+    private static final Set<String> ALLOWED = Set.of(".svs", ".png", ".jpg", ".jpeg");
+
+    private static String sanitizeFilename(String name) {
+        if (name == null) return "";
+        String base = Paths.get(name).getFileName().toString();
+        base = base.replaceAll("[\\r\\n\\t]", "_").trim();
+        base = base.replaceAll("[^A-Za-z0-9._ -]", "_");
+        return base;
+    }
+
+    private static String extOf(String name) {
+        if (name == null) return "";
+        int i = name.lastIndexOf('.');
+        return (i >= 0) ? name.substring(i).toLowerCase() : "";
+    }
+
+    private static String baseNameWithoutExt(String filename) {
+        int i = filename.lastIndexOf('.');
+        return (i >= 0) ? filename.substring(0, i) : filename;
+    }
+
+    private static String normalizeExt(String ext) {
+        if (".jpeg".equals(ext)) return ".jpg";
+        return ext;
+    }
+
+    private static boolean isAllowedExt(String ext) {
+        return ALLOWED.contains(ext);
+    }
+
+    private static String guessExt(MultipartFile f) {
+        String ext = normalizeExt(extOf(f.getOriginalFilename()));
+        if (isAllowedExt(ext)) return ext;
+
+        String ct = f.getContentType();
+        if (ct != null) {
+            switch (ct) {
+                case "image/jpeg": return ".jpg";
+                case "image/png":  return ".png";
+                default: break;
+            }
+        }
+        return ".svs";
+    }
+
+    private static Path ensureUnique(Path dir, String filename) {
+        Path p = dir.resolve(filename);
+        if (!Files.exists(p)) return p;
+        String base = baseNameWithoutExt(filename);
+        String ext  = extOf(filename);
+        int n = 1;
+        while (true) {
+            Path candidate = dir.resolve(base + "-" + n + ext);
+            if (!Files.exists(candidate)) return candidate;
+            n++;
+        }
+    }
+
+    private Long currentUserId() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        // TODO: ajustá este cast a tu implementación real:
+        return ((AppUserDetails) auth.getPrincipal()).getId();
+    }
+
     private String toWslPath(Path p) {
         String abs = p.toAbsolutePath().normalize().toString();
         if (abs.length() >= 2 && abs.charAt(1) == ':') {
@@ -57,29 +123,50 @@ public class PipelineServiceImpl implements PipelineService {
     @Override
     @Transactional
     public PipelineSession createAndRun(MultipartFile svsFile, Map<String, String> opts) throws IOException {
+        Long userId = currentUserId();
+
+        if (svsFile == null || svsFile.isEmpty()) {
+            throw new IllegalArgumentException("Archivo vacío");
+        }
+        if (svsFile.getSize() > MAX_SIZE) {
+            throw new IllegalArgumentException("El archivo supera el tamaño máximo permitido (5 GB).");
+        }
+
         PipelineSession s = new PipelineSession();
+        s.setUserId(userId);
         s.setStatus("QUEUED");
         s.setCreatedAt(Instant.now());
         s = repo.save(s);
 
-        Path pipeRoot = root();
+        Path pipeRoot     = root();
         Path sessionsRoot = pipeRoot.resolve("resources").resolve("sessions");
-        Path sessionDir = sessionsRoot.resolve(String.valueOf(s.getId()));
-        Path inputDir = sessionDir.resolve("input");
-        Path logsDir = sessionDir.resolve("artifacts").resolve("logs");
-        Path reportsDir = sessionDir.resolve("artifacts").resolve("reports");
+        Path sessionDir   = sessionsRoot.resolve(String.valueOf(userId)).resolve(String.valueOf(s.getId()));
+        Path inputDir     = sessionDir.resolve("input");
+        Path logsDir      = sessionDir.resolve("artifacts").resolve("logs");
+        Path reportsDir   = sessionDir.resolve("artifacts").resolve("reports");
 
         Files.createDirectories(inputDir);
         Files.createDirectories(logsDir);
         Files.createDirectories(reportsDir);
 
-        String cleanName = Optional.ofNullable(svsFile.getOriginalFilename())
-                .filter(n -> !n.isBlank())
-                .orElse("slide_" + s.getId() + ".svs");
-        Path svsPath = inputDir.resolve(cleanName);
-        Files.copy(svsFile.getInputStream(), svsPath, StandardCopyOption.REPLACE_EXISTING);
+        String originalSan = sanitizeFilename(svsFile.getOriginalFilename());
+        String base        = baseNameWithoutExt(originalSan);
+        if (base.isBlank()) base = "slide_" + s.getId();
 
-        s.setSlideName(cleanName);
+        String ext = normalizeExt(extOf(originalSan));
+        if (!isAllowedExt(ext)) {
+            ext = guessExt(svsFile);
+        }
+        if (!isAllowedExt(ext)) {
+            throw new IllegalArgumentException("Extensión no permitida");
+        }
+
+        String cleanName = base + ext;
+        Path svsPath     = ensureUnique(inputDir, cleanName);
+
+        svsFile.transferTo(svsPath.toFile());
+
+        s.setSlideName(svsPath.getFileName().toString()); // el nombre final único
         s.setStoragePath(sessionDir.toString());
         s.setLogPath(logsDir.resolve("pipeline.log").toString());
         s.setReportPath(reportsDir.resolve("pipeline_report.json").toString());
@@ -97,15 +184,15 @@ public class PipelineServiceImpl implements PipelineService {
         repo.save(s);
 
         Path pipeRoot = root();
-        Path logFile = logsDir.resolve("pipeline.log");
-        Path report = reportsDir.resolve("pipeline_report.json");
+        Path logFile  = logsDir.resolve("pipeline.log");
+        Path report   = reportsDir.resolve("pipeline_report.json");
 
         try {
             Files.createDirectories(logsDir);
             int exit;
 
             if ("wsl".equalsIgnoreCase(execMode)) {
-                String wslCwd = toWslPath(pipeRoot);
+                String wslCwd    = toWslPath(pipeRoot);
                 String wslConfig = toWslPath(pipeRoot.resolve("configs").resolve("defaults.yaml"));
 
                 List<String> inner = new ArrayList<>();
@@ -142,7 +229,7 @@ public class PipelineServiceImpl implements PipelineService {
 
             } else {
                 Path runner = pipeRoot.resolve("scripts").resolve("run_pipeline.py");
-                String cfg = pipeRoot.resolve("configs").resolve("defaults.yaml").toString();
+                String cfg  = pipeRoot.resolve("configs").resolve("defaults.yaml").toString();
 
                 List<String> cmd = new ArrayList<>();
                 String bin = (pythonBinLocal != null && !pythonBinLocal.isBlank()) ? pythonBinLocal : null;
@@ -183,15 +270,14 @@ public class PipelineServiceImpl implements PipelineService {
                             .readTree(Files.readString(report));
                     if (node.has("apt")) {
                         var apt = node.get("apt");
-                        if (apt.has("kept_apto")) s.setKeptApto(apt.get("kept_apto").asInt());
+                        if (apt.has("kept_apto"))    s.setKeptApto(apt.get("kept_apto").asInt());
                         if (apt.has("kept_no_apto")) s.setKeptNoApto(apt.get("kept_no_apto").asInt());
-                        if (apt.has("apto_ratio")) s.setAptoRatio(apt.get("apto_ratio").asDouble());
+                        if (apt.has("apto_ratio"))   s.setAptoRatio(apt.get("apto_ratio").asDouble());
                         if (apt.has("threshold_used")) s.setThresholdUsed(apt.get("threshold_used").asDouble());
-                        if (apt.has("batch_size")) s.setBatchSize(apt.get("batch_size").asInt());
-                        if (apt.has("link_strategy")) s.setLinkStrategy(apt.get("link_strategy").asText(null));
+                        if (apt.has("batch_size"))     s.setBatchSize(apt.get("batch_size").asInt());
+                        if (apt.has("link_strategy"))  s.setLinkStrategy(apt.get("link_strategy").asText(null));
                     }
-                } catch (Exception ignore) {
-                }
+                } catch (Exception ignore) { }
                 s.setStatus("DONE");
             } else {
                 s.setStatus("ERROR");
@@ -206,12 +292,15 @@ public class PipelineServiceImpl implements PipelineService {
 
     @Override
     public Optional<PipelineSession> get(Long id) {
-        return repo.findById(id);
+        Long userId = currentUserId();
+        return repo.findByIdAndUserId(id, userId);
     }
 
     @Override
     public String readReportJson(Long id) throws IOException {
-        PipelineSession s = repo.findById(id).orElseThrow();
+        Long userId = currentUserId();
+        PipelineSession s = repo.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new NoSuchElementException("session not found"));
         if (s.getReportPath() == null) return "{}";
         Path p = Paths.get(s.getReportPath());
         return Files.exists(p) ? Files.readString(p) : "{}";

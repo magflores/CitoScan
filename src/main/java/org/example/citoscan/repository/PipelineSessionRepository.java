@@ -3,4 +3,8 @@ package org.example.citoscan.repository;
 import org.example.citoscan.model.PipelineSession;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface PipelineSessionRepository extends JpaRepository<PipelineSession, Long> {}
+import java.util.Optional;
+
+public interface PipelineSessionRepository extends JpaRepository<PipelineSession, Long> {
+    Optional<PipelineSession> findByIdAndUserId(Long id, Long userId);
+}

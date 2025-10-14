@@ -15,6 +15,9 @@ public class PipelineSession {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
+
     private String slideName;
     private String status;
     private String storagePath;
