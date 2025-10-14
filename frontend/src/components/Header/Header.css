@@ -4,30 +4,26 @@
     align-items: center;
     justify-content: space-between;
     padding: 0 24px;
-    border-bottom: 2px solid #e5e7eb;
+    border-bottom: 1px solid #e5e7eb; /* divider global */
+    background: #fff;
 }
 
-.hdr__brand {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
+.hdr__brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; }
+.hdr__logo { width: 48px; height: 48px; border-radius: 999px; object-fit: cover; box-shadow: 0 0 0 1px rgba(0,0,0,.06); }
+.hdr__name { font-size: 32px; font-weight: 400; letter-spacing: 0.3px; }
 
-.hdr__logo {
-    width: 48px;
-    height: 48px;
-    border-radius: 999px;
-    object-fit: cover;
-    box-shadow: 0 0 0 1.2px rgba(0,0,0,.06);
-}
+.hdr__actions { display: flex; gap: 16px; }
 
-.hdr__name {
-    font-size: 32px;
-    font-weight: 400;
-    letter-spacing: 0.3px;
+.hdr__nav { display: flex; align-items: center; gap: 22px; }
+.hdr__tab {
+    text-decoration: none;
+    color: #111;
+    letter-spacing: .5px;
 }
+.hdr__tab.is-active { text-decoration: underline; text-underline-offset: 4px; }
 
-.hdr__actions {
-    display: flex;
-    gap: 16px;
+.hdr__avatar { margin-left: 6px; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+.hdr__avatarCircle {
+    width: 36px; height: 36px; border-radius: 999px;
+    border: 1px solid #e5e7eb; color: #374151; display: grid; place-items: center;
 }

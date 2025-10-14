@@ -1,0 +1,101 @@
+.home { padding: 0 24px; max-width: 980px; margin: 0 auto; }
+
+.home__lead {
+    text-align: center;
+    font-size: 22px;
+    color: #111;
+    margin: 24px 0 18px 0;
+    font-weight: 500;
+}
+
+.dropzone {
+    border: 2px dashed #e3e5e8;
+    border-radius: 16px;
+    background: #fff;
+    padding: 0;
+}
+.dropzone.is-over {
+    background: rgba(189, 222, 230, .12);
+    border-color: rgba(189, 222, 230, .6);
+}
+
+.dropzone__canvas {
+    --dz-h: 420px;
+    height: var(--dz-h);
+    position: relative;
+    overflow: hidden;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+}
+
+.dropzone__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: #f9fafb;
+}
+
+.dropzone__empty {
+    display: grid;
+    place-items: center;
+    gap: 10px;
+    text-align: center;
+}
+.dropzone__icon { font-size: 44px; color: #6b7280; line-height: 1; }
+.dropzone__text { color: #374151; }
+
+.dropzone__input { display: none; }
+
+.dropzone__previewLoader {
+    position: absolute; inset: 0;
+    display: grid; place-items: center; gap: 8px;
+    background: rgba(255,255,255,.65);
+    text-align: center; color: #374151;
+}
+.dropzone__previewLoader img { width: 56px; height: 56px; }
+
+.dropzone__error { margin-top: 8px; color: #9b1c1c; font-size: 13px; }
+
+.home__below {
+    min-height: 64px;
+    display: grid;
+    align-content: center;
+}
+
+.home__metaRow {
+    display: flex; justify-content: space-between; gap: 12px;
+    color: #6b7280; font-size: 14px;
+}
+.home__fileRow {
+    display: flex; align-items: center; gap: 10px;
+}
+.home__filename {
+    flex: 1; color: #374151;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.home__remove {
+    width: 32px; height: 32px; border-radius: 999px;
+    border: 1px solid #e5e7eb; background: #fff; color: #6b7280;
+    display: grid; place-items: center; cursor: pointer;
+    transition: filter .12s ease, background-color .12s ease, border-color .12s ease;
+}
+.home__remove:hover { filter: brightness(.98); background: #fff; border-color: #d8dbe0; }
+.home__trash { width: 18px; height: 18px; }
+
+.home__actions {
+    display: grid;
+    grid-template-columns: max-content;
+    justify-content: center;
+}
+.home__actions .home__analyze { width: 100%; min-width: 280px; }
+
+.home__welcome { text-align: center; }
+.home__welcome a { color: #374151; text-decoration: underline; }
+.home__welcome a:hover { color: #111827; }
+.home__welcome-check { display: inline-flex; align-items: center; gap: 10px; color:#4b5563; }
+.home__welcome-actions { margin-top: 16px; display: flex; justify-content: center; }
+
+@media (max-width: 720px) {
+    .dropzone__canvas { --dz-h: 300px; }
+}

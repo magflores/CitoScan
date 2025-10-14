@@ -1,21 +1,36 @@
 import React from "react";
+import { Link, NavLink } from "react-router-dom";
+import Button from "../Button/Button.jsx";
 import "./Header.css";
 import logo from "../../assets/citoIcon.svg";
-import Button from "../Button/Button.jsx";
 
-
-export default function Header() {
+export default function Header({ mode = "public" }) {
     return (
         <header className="hdr">
-            <div className="hdr__brand">
-                <img src={logo} alt="Logo CitoScan" className="hdr__logo" />
+            <Link to="/" className="hdr__brand" aria-label="Inicio">
+                <img src={logo} alt="" className="hdr__logo" />
                 <span className="hdr__name">CitoScan</span>
-            </div>
-            <nav className="hdr__actions">
-                <Button to="/login" variant="outline" tone="pink">Iniciar sesión</Button>
-                <Button to="/register" variant="muted"  tone="blue">Registrarse</Button>
+            </Link>
 
-            </nav>
+            {mode === "public" ? (
+                <div className="hdr__actions">
+                    <Button to="/login" variant="outline" tone="pink">Iniciar sesión</Button>
+                    <Button to="/register" variant="muted" tone="blue">Registrarse</Button>
+                </div>
+            ) : (
+                <nav className="hdr__nav">
+                    <NavLink to="/home" className={({isActive}) => "hdr__tab" + (isActive ? " is-active" : "")}>
+                        HOME
+                    </NavLink>
+                    <NavLink to="/info" className={({isActive}) => "hdr__tab" + (isActive ? " is-active" : "")}>
+                        INFO
+                    </NavLink>
+
+                    <Link to="/profile" className="hdr__avatar" aria-label="Perfil">
+                        <span className="hdr__avatarCircle">👤</span>
+                    </Link>
+                </nav>
+            )}
         </header>
     );
 }
