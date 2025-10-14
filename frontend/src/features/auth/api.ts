@@ -3,6 +3,7 @@ export type ApiError = {
     fieldErrors?: Record<string, string>;
     status?: number;
 };
+const TOKEN_KEY = "auth_token";
 
 const RAW_API = import.meta.env.VITE_API_URL ?? "";
 const API = RAW_API.replace(/\/+$/, "");
@@ -69,7 +70,11 @@ async function req<T>(method: Method, path: string, data?: unknown, init?: Reque
     try {
         const res = await fetch(joinUrl(API, path), {
             method,
-            headers: {"Content-Type": "application/json", ...(init?.headers ?? {})},
+            headers: {
+                "Content-Type": "application/json",
+                ...authHeader(),
+                ...(init?.headers ?? {}),
+            },
             body: data !== undefined ? JSON.stringify(data) : undefined,
             credentials: "include",
             signal: ac.signal,
@@ -106,6 +111,19 @@ export function delJSON<T>(path: string, init?: RequestInit) {
     return req<T>("DELETE", path, undefined, init);
 }
 
+export function getToken(): string | null {
+    try {
+        return localStorage.getItem(TOKEN_KEY);
+    } catch {
+        return null;
+    }
+}
+
+function authHeader(): Record<string, string> {
+    const t = getToken();
+    return t ? {Authorization: `Bearer ${t}`} : {};
+}
+
 /** AUTH **/
 
 export type LoginReq = { email: string; password: string };
@@ -139,4 +157,40 @@ export type RegisterRes = {
 
 export function register(req: RegisterReq) {
     return postJSON<RegisterRes>("/users", req);
+}
+
+/** PIPELINE **/
+
+export type CreateSessionRes = {
+    id: string;
+    sessionId?: string;
+    [key: string]: any;
+};
+
+export async function createPipelineSession(file: File): Promise<CreateSessionRes> {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch(joinUrl(API, "/pipeline/sessions"), {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+        headers: {
+            ...authHeader(),
+        },
+    });
+
+    if (!res.ok) {
+        if (res.status === 413) {
+            throw {message: "El archivo supera el máximo permitido por el servidor."};
+        }
+        let msg = "";
+        try {
+            msg = await res.text();
+        } catch {
+        }
+        throw {message: msg || "Falló la creación de la sesión."};
+    }
+
+    return await res.json();
 }

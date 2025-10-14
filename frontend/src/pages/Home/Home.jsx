@@ -4,6 +4,8 @@ import Button from "../../components/Button/Button.jsx";
 import Modal from "../../components/Modal/Modal.jsx";
 import Header from "../../components/Header/Header.jsx";
 import loaderGif from "../../assets/citoGif.gif";
+import { createPipelineSession } from "../../features/auth/api";
+
 
 const LOCALSTORAGE_KEY = "cs_hide_welcome_v1";
 const ACCEPT_EXT = [".svs", ".png", ".jpg", ".jpeg"];
@@ -18,6 +20,9 @@ export default function Home() {
     const [error, setError] = useState("");
     const [previewUrl, setPreviewUrl] = useState(null);
     const [loadingPreview, setLoadingPreview] = useState(false);
+
+    const [uploading, setUploading] = useState(false);
+    const [sessionId, setSessionId] = useState(null);
 
     const inputRef = useRef(null);
     const [dragOver, setDragOver] = useState(false);
@@ -51,6 +56,7 @@ export default function Home() {
             setPreviewUrl(null);
         }
         if (inputRef.current) inputRef.current.value = "";
+        setSessionId(null);
     }
 
     function validateAndSet(f) {
@@ -70,6 +76,7 @@ export default function Home() {
 
         setFile(f);
         setError("");
+        setSessionId(null);
 
         if (isImageFile(f)) {
             const url = URL.createObjectURL(f);
@@ -101,13 +108,25 @@ export default function Home() {
     function onDragLeave() { setDragOver(false); }
 
     const canAnalyze = useMemo(
-        () => !!file && !error && !loadingPreview,
-        [file, error, loadingPreview]
+        () => !!file && !error && !loadingPreview && !uploading,
+        [file, error, loadingPreview, uploading]
     );
 
-    function onAnalyze() {
+    async function onAnalyze() {
         if (!canAnalyze) return;
-        console.log("analizar", { file });
+
+        try {
+            setUploading(true);
+            setError("");
+            setSessionId(null);
+
+            const session = await createPipelineSession(file);
+            setSessionId(session.id || session.sessionId || null);
+        } catch (e) {
+            setError(e.message || "Error al analizar el archivo.");
+        } finally {
+            setUploading(false);
+        }
     }
 
     const hasFile = !!file;
@@ -166,6 +185,7 @@ export default function Home() {
                                         type="button"
                                         className="text-link"
                                         onClick={browseFile}
+                                        disabled={uploading}
                                     >
                                         subí un archivo
                                     </button>
@@ -180,6 +200,7 @@ export default function Home() {
                         accept={ACCEPT_EXT.join(",")}
                         className="dropzone__input"
                         onChange={onInputChange}
+                        disabled={uploading}
                     />
                 </div>
 
@@ -198,6 +219,7 @@ export default function Home() {
                                 onClick={clearFile}
                                 title="Quitar archivo"
                                 aria-label="Quitar archivo"
+                                disabled={uploading}
                             >
                                 <svg viewBox="0 0 24 24" className="home__trash" aria-hidden>
                                     <path
@@ -210,6 +232,21 @@ export default function Home() {
                     )}
 
                     {error && <div className="dropzone__error">{error}</div>}
+
+                    {sessionId && !error && (
+                        <div className="home__success">
+                            Sesión creada: <strong>#{sessionId}</strong>
+                            {" "}
+                            <a href={`/pipeline/sessions/${sessionId}`}>ver detalles</a>
+                        </div>
+                    )}
+
+                    {uploading && (
+                        <div className="home__uploading">
+                            <img src={loaderGif} alt="" />
+                            <span>Subiendo archivo y analizando…</span>
+                        </div>
+                    )}
                 </div>
 
                 <div className="home__actions">
@@ -220,7 +257,7 @@ export default function Home() {
                         onClick={onAnalyze}
                         className="home__analyze"
                     >
-                        Analizar
+                        {uploading ? "Enviando…" : "Analizar"}
                     </Button>
                 </div>
 
