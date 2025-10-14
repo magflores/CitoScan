@@ -1,4 +1,4 @@
-package org.example.citoscan;
+package org.example.citoscan.config;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
