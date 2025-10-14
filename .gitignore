@@ -53,3 +53,4 @@ build/
 *.pt
 *.keras
 *.pkl
+**/__pycache__/
