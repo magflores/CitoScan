@@ -1,6 +1,7 @@
 import argparse, json, sys, time, subprocess, os
 from pathlib import Path
 from copy import deepcopy
+from typing import Optional
 import yaml
 
 from utils.io_utils import ensure_dir
@@ -29,9 +30,23 @@ def try_read_json(p: Path, default=None):
 def fmt(s: str, sid: str) -> str:
     return s.replace("{session_id}", sid)
 
+def discover_session_root(sid: str) -> Path:
+
+    base = ROOT / "resources" / "sessions"
+    for p in base.glob(f"*/{sid}"):
+        if p.is_dir():
+            return p
+    p_old = base / sid
+    if p_old.is_dir():
+        return p_old
+    raise SystemExit(f"[run_pipeline] No se encontró la sesión '{sid}' en {base} (ni en */{sid}).")
+
+
 def main():
     ap = argparse.ArgumentParser(description="Orquestador: SVS→Tiles→BG→Features→Aptitud→Cells")
     ap.add_argument("--session_id", required=True)
+    ap.add_argument("--user_id", default=None)
+    ap.add_argument("--session_dir", type=Path)
     ap.add_argument("--config", type=Path, default=Path("configs/defaults.yaml"))
 
     # BG overrides
@@ -66,7 +81,17 @@ def main():
     cfg = deepcopy(cfg)
 
     # paths base por sesión
-    sess_root   = ROOT / "resources" / "sessions" / sid
+    if args.session_dir:
+        sess_root = args.session_dir if args.session_dir.is_absolute() else (ROOT / args.session_dir)
+        if not sess_root.exists():
+            raise SystemExit(f"[run_pipeline] --session_dir no existe: {sess_root}")
+    elif args.user_id:
+        sess_root = ROOT / "resources" / "sessions" / str(args.user_id) / sid
+        if not sess_root.exists():
+            sess_root = discover_session_root(sid)
+    else:
+        sess_root = discover_session_root(sid)
+
     input_dir   = sess_root / "input"
     ws          = sess_root / "workspace"
     tiles_dir   = ws / "01_tiles"

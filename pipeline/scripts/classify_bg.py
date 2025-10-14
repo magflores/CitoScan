@@ -91,6 +91,20 @@ def main():
     thr = get_threshold(args.threshold, args.threshold_path, default=0.5)
 
     paths = list_images(args.in_dir)
+    if not paths:
+        ensure_dir(args.out_dir)
+        fondo_dir = args.out_dir / "fondo";    ensure_dir(fondo_dir)
+        nf_dir    = args.out_dir / "no_fondo"; ensure_dir(nf_dir)
+        samples   = args.out_dir / "_samples"; ensure_dir(samples / "fondo"); ensure_dir(samples / "no_fondo")
+        metrics = {
+            "input_total": 0,
+            "threshold_used": float(thr),
+            "processed": 0, "passed": 0, "discarded": 0,
+            "kept_ratio": 0.0, "link_strategy": args.link_strategy
+        }
+        if args.stats_out: ensure_dir(args.stats_out.parent); args.stats_out.write_text(json.dumps(metrics, indent=2, ensure_ascii=False))
+        print(json.dumps(metrics, ensure_ascii=False)); return
+
     clf = BinaryKerasClassifier(args.model, input_size=input_size)
     probs = clf.predict_paths(paths, batch_size=args.batch_size)  # [p(fondo), p(no_fondo)]
 
