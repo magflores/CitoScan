@@ -1,7 +1,11 @@
-export type ApiError = { message: string; fieldErrors?: Record<string, string> };
+export type ApiError = {
+    message: string;
+    fieldErrors?: Record<string, string>;
+    status?: number;
+};
 
 const RAW_API = import.meta.env.VITE_API_URL ?? "";
-const API = RAW_API.endsWith("/") ? RAW_API.slice(0, -1) : RAW_API;
+const API = RAW_API.replace(/\/+$/, "");
 
 function joinUrl(base: string, path: string) {
     if (!path) return base;
@@ -11,7 +15,10 @@ function joinUrl(base: string, path: string) {
 function parseMaybeJson(contentType: string | null, raw: string): unknown {
     const isJson = contentType?.includes("application/json");
     if (isJson) {
-        try { return JSON.parse(raw); } catch { }
+        try {
+            return JSON.parse(raw);
+        } catch {
+        }
     }
     return raw;
 }
@@ -27,26 +34,28 @@ function normalizeError(body: unknown): ApiError {
             anyBody.fieldErrors && typeof anyBody.fieldErrors === "object"
                 ? anyBody.fieldErrors
                 : undefined;
-        return { message, fieldErrors };
+        return {message, fieldErrors};
     }
     const message = typeof body === "string" && body.trim() ? body : "Error desconocido";
-    return { message };
+    return {message};
 }
 
 const DEFAULT_TIMEOUT = 15000;
 
 async function handle<T>(res: Response): Promise<T> {
     if (res.status === 204 || res.status === 205 || res.headers.get("content-length") === "0") {
-        if (!res.ok) throw { message: `Error ${res.status}` } satisfies ApiError;
+        if (!res.ok) throw {message: `Error ${res.status}`} satisfies ApiError;
         return undefined as T;
     }
 
     const ct = res.headers.get("content-type");
-    const raw = await res.text(); // leemos como texto y luego intentamos parsear
+    const raw = await res.text();
     const body = parseMaybeJson(ct, raw);
 
     if (!res.ok) {
-        throw normalizeError(body);
+        const err = normalizeError(body);
+        (err as any).status = res.status;
+        throw err;
     }
     return body as T;
 }
@@ -60,18 +69,18 @@ async function req<T>(method: Method, path: string, data?: unknown, init?: Reque
     try {
         const res = await fetch(joinUrl(API, path), {
             method,
-            headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+            headers: {"Content-Type": "application/json", ...(init?.headers ?? {})},
             body: data !== undefined ? JSON.stringify(data) : undefined,
-            credentials: "include", // cookies/CSRF si corresponde
+            credentials: "include",
             signal: ac.signal,
             ...init,
         });
         return await handle<T>(res);
     } catch (e: any) {
         if (e?.name === "AbortError") {
-            throw { message: "La solicitud tardó demasiado (timeout)." } satisfies ApiError;
+            throw {message: "La solicitud tardó demasiado (timeout)."} satisfies ApiError;
         }
-        throw e?.message ? e : { message: "Fallo de red o servidor no disponible." } satisfies ApiError;
+        throw e?.message ? e : {message: "Fallo de red o servidor no disponible."} satisfies ApiError;
     } finally {
         clearTimeout(t);
     }
@@ -80,15 +89,19 @@ async function req<T>(method: Method, path: string, data?: unknown, init?: Reque
 export function getJSON<T>(path: string, init?: RequestInit) {
     return req<T>("GET", path, undefined, init);
 }
+
 export function postJSON<T>(path: string, data: unknown, init?: RequestInit) {
     return req<T>("POST", path, data, init);
 }
+
 export function putJSON<T>(path: string, data: unknown, init?: RequestInit) {
     return req<T>("PUT", path, data, init);
 }
+
 export function patchJSON<T>(path: string, data: unknown, init?: RequestInit) {
     return req<T>("PATCH", path, data, init);
 }
+
 export function delJSON<T>(path: string, init?: RequestInit) {
     return req<T>("DELETE", path, undefined, init);
 }
