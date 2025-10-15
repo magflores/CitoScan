@@ -47,11 +47,9 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // abiertos
+                        .requestMatchers(HttpMethod.OPTIONS, "/api/**").permitAll()
                         .requestMatchers("/api/auth/login").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/users").permitAll() // register
-                        // (agregá aquí otros públicos si hace falta, ej: /actuator/health)
-                        // protegidos
+                        .requestMatchers(HttpMethod.POST, "/api/users").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
@@ -61,13 +59,13 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-        var cfg = new CorsConfiguration();
+        CorsConfiguration cfg = new CorsConfiguration();
         cfg.setAllowedOrigins(allowedOrigins);
-        cfg.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
-        cfg.setAllowedHeaders(List.of("Authorization","Content-Type","Accept"));
-        cfg.setAllowCredentials(true); // si además usás cookies para algo
-        var source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", cfg);
+        cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        cfg.setAllowedHeaders(List.of("*"));
+        cfg.setAllowCredentials(true);
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/api/**", cfg);
         return source;
     }
 }
