@@ -4,13 +4,17 @@ import Button from "../../components/Button/Button.jsx";
 import Modal from "../../components/Modal/Modal.jsx";
 import Header from "../../components/Header/Header.jsx";
 import loaderGif from "../../assets/citoGif.gif";
-import { createPipelineSession } from "../../features/auth/api";
-
+import {
+    createPipelineSession,
+    getPipelineSession,
+    getPipelineResults,
+} from "../../features/auth/api";
 
 const LOCALSTORAGE_KEY = "cs_hide_welcome_v1";
 const ACCEPT_EXT = [".svs", ".png", ".jpg", ".jpeg"];
 const IMG_EXT = [".png", ".jpg", ".jpeg"];
 const MAX_SIZE = 5 * 1024 * 1024 * 1024;
+const POLL_MS = 2500;
 
 export default function Home() {
     const [hideWelcome, setHideWelcome] = useState(false);
@@ -23,9 +27,12 @@ export default function Home() {
 
     const [uploading, setUploading] = useState(false);
     const [sessionId, setSessionId] = useState(null);
+    const [status, setStatus] = useState(null); // "QUEUED" | "RUNNING" | "DONE" | "ERROR" | null
+    const [results, setResults] = useState(null);
 
     const inputRef = useRef(null);
     const [dragOver, setDragOver] = useState(false);
+    const pollRef = useRef(null);
 
     useEffect(() => {
         const persisted = localStorage.getItem(LOCALSTORAGE_KEY) === "true";
@@ -47,6 +54,13 @@ export default function Home() {
         return IMG_EXT.includes(ext);
     }
 
+    function stopPolling() {
+        if (pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+        }
+    }
+
     function clearFile() {
         setError("");
         setFile(null);
@@ -57,6 +71,9 @@ export default function Home() {
         }
         if (inputRef.current) inputRef.current.value = "";
         setSessionId(null);
+        setStatus(null);
+        setResults(null);
+        stopPolling();
     }
 
     function validateAndSet(f) {
@@ -77,6 +94,8 @@ export default function Home() {
         setFile(f);
         setError("");
         setSessionId(null);
+        setStatus(null);
+        setResults(null);
 
         if (isImageFile(f)) {
             const url = URL.createObjectURL(f);
@@ -93,6 +112,7 @@ export default function Home() {
     useEffect(() => {
         return () => {
             if (previewUrl) URL.revokeObjectURL(previewUrl);
+            stopPolling();
         };
     }, [previewUrl]);
 
@@ -107,10 +127,39 @@ export default function Home() {
     function onDragOver(e) { e.preventDefault(); setDragOver(true); }
     function onDragLeave() { setDragOver(false); }
 
+    const isBusy = status === "QUEUED" || status === "RUNNING" || uploading;
     const canAnalyze = useMemo(
-        () => !!file && !error && !loadingPreview && !uploading,
-        [file, error, loadingPreview, uploading]
+        () => !!file && !error && !loadingPreview && !isBusy,
+        [file, error, loadingPreview, isBusy]
     );
+
+    async function refreshSession(id) {
+        try {
+            const s = await getPipelineSession(id);
+            setStatus(s.status || null);
+
+            if (s.status === "DONE") {
+                stopPolling();
+                try {
+                    const r = await getPipelineResults(id);
+                    setResults(r);
+                } catch (e) {
+                    setError(e.message || "No se pudieron obtener los resultados.");
+                }
+            } else if (s.status === "ERROR") {
+                stopPolling();
+            }
+        } catch (e) {
+            setError(e.message || "No se pudo actualizar el estado.");
+            stopPolling();
+        }
+    }
+
+    async function startPolling(id) {
+        stopPolling();
+        await refreshSession(id); // primer tick inmediato
+        pollRef.current = setInterval(() => refreshSession(id), POLL_MS);
+    }
 
     async function onAnalyze() {
         if (!canAnalyze) return;
@@ -119,9 +168,18 @@ export default function Home() {
             setUploading(true);
             setError("");
             setSessionId(null);
+            setStatus(null);
+            setResults(null);
 
             const session = await createPipelineSession(file);
-            setSessionId(session.id || session.sessionId || null);
+            const id = session.id || session.sessionId || null;
+            setSessionId(id);
+            setStatus(session.status || "QUEUED");
+            if (id != null) {
+                await startPolling(id);
+            } else {
+                setError("No se obtuvo el ID de la sesión.");
+            }
         } catch (e) {
             setError(e.message || "Error al analizar el archivo.");
         } finally {
@@ -132,12 +190,35 @@ export default function Home() {
     const hasFile = !!file;
     const hasPreview = !!previewUrl;
 
+    const statusBanner = (() => {
+        if (status === "QUEUED") {
+            return <div className="home__status info">Iniciando proceso…</div>;
+        }
+        if (status === "RUNNING") {
+            return (
+                <div className="home__status busy">
+                    <img src={loaderGif} alt="" />
+                    <span>Analizando…</span>
+                </div>
+            );
+        }
+        if (status === "DONE") {
+            return <div className="home__status ok">Análisis finalizado</div>;
+        }
+        if (status === "ERROR") {
+            return <div className="home__status error">Ocurrió un error en el análisis</div>;
+        }
+        return null;
+    })();
+
     return (
         <>
             {/*@TODO: Update view to show results*/}
             <Header mode="auth" />
             <div className="home">
                 <p className="home__lead">Empezá tu análisis</p>
+
+                {statusBanner}
 
                 <div
                     className={`dropzone ${dragOver ? "is-over" : ""}`}
@@ -173,7 +254,7 @@ export default function Home() {
                                 <div className="dropzone__icon" aria-hidden>⤴</div>
                                 <div className="dropzone__text">
                                     Vista previa no disponible. Arrastrá otra imagen o{" "}
-                                    <button type="button" className="dropzone__link" onClick={browseFile}>
+                                    <button type="button" className="dropzone__link" onClick={browseFile} disabled={isBusy}>
                                         subí un archivo
                                     </button>
                                 </div>
@@ -187,7 +268,7 @@ export default function Home() {
                                         type="button"
                                         className="text-link"
                                         onClick={browseFile}
-                                        disabled={uploading}
+                                        disabled={isBusy}
                                     >
                                         subí un archivo
                                     </button>
@@ -202,7 +283,7 @@ export default function Home() {
                         accept={ACCEPT_EXT.join(",")}
                         className="dropzone__input"
                         onChange={onInputChange}
-                        disabled={uploading}
+                        disabled={isBusy}
                     />
                 </div>
 
@@ -221,7 +302,7 @@ export default function Home() {
                                 onClick={clearFile}
                                 title="Quitar archivo"
                                 aria-label="Quitar archivo"
-                                disabled={uploading}
+                                disabled={isBusy}
                             >
                                 <svg viewBox="0 0 24 24" className="home__trash" aria-hidden>
                                     <path
@@ -237,8 +318,7 @@ export default function Home() {
 
                     {sessionId && !error && (
                         <div className="home__success">
-                            Sesión creada: <strong>#{sessionId}</strong>
-                            {" "}
+                            Sesión creada: <strong>#{sessionId}</strong>{" "}
                             <a href={`/pipeline/sessions/${sessionId}`}>ver detalles</a>
                         </div>
                     )}
@@ -260,9 +340,54 @@ export default function Home() {
                         onClick={onAnalyze}
                         className="home__analyze"
                     >
-                        {uploading ? "Enviando…" : "Analizar"}
+                        {isBusy ? "Procesando…" : "Analizar"}
                     </Button>
                 </div>
+
+                {status === "DONE" && results && (
+                    <div className="home__results">
+                        <h3>Resultados</h3>
+                        <div className="home__grid">
+                            <div className="home__card">
+                                <div className="label">Diagnóstico posible</div>
+                                <div className="value">{results.possibleDiagnosis || "—"}</div>
+                            </div>
+                            <div className="home__card">
+                                <div className="label">Tiles totales</div>
+                                <div className="value">{results.tilesTotal ?? "—"}</div>
+                            </div>
+                            <div className="home__card">
+                                <div className="label">No Fondo</div>
+                                <div className="value">{results.notBackgroundTotal ?? "—"}</div>
+                            </div>
+                            <div className="home__card">
+                                <div className="label">Fondo</div>
+                                <div className="value">{results.backgroundTotal ?? "—"}</div>
+                            </div>
+                            <div className="home__card">
+                                <div className="label">Apto</div>
+                                <div className="value">{results.aptoTotal ?? "—"}</div>
+                            </div>
+                            <div className="home__card">
+                                <div className="label">No Apto</div>
+                                <div className="value">{results.noAptoTotal ?? "—"}</div>
+                            </div>
+                        </div>
+
+                        {Array.isArray(results.topPatches) && results.topPatches.length > 0 && (
+                            <div className="home__top">
+                                <h4>Top patches</h4>
+                                <ul className="home__topList">
+                                    {results.topPatches.slice(0, 10).map((t, i) => (
+                                        <li key={i}>
+                                            <code>{t.rel_path || "?"}</code> — {t.cls || "?"} ({(t.conf ?? 0).toFixed(3)})
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 <Modal open={showWelcome} onClose={closeWelcome}>
                     <div className="home__welcome">

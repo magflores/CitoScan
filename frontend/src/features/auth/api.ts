@@ -194,3 +194,63 @@ export async function createPipelineSession(file: File): Promise<CreateSessionRe
 
     return await res.json();
 }
+
+/** PIPELINE — status & results **/
+
+export type PipelineStatus = "QUEUED" | "RUNNING" | "DONE" | "ERROR";
+
+export type PipelineSessionDto = {
+    id: number;
+    userId: number;
+    status: PipelineStatus;
+    slideName?: string | null;
+
+    createdAt?: string | null;
+    startedAt?: string | null;
+    finishedAt?: string | null;
+
+    tilesTotal?: number | null;
+    notBackgroundTotal?: number | null;
+    backgroundTotal?: number | null;
+    aptoTotal?: number | null;
+    noAptoTotal?: number | null;
+
+    possibleDiagnosis?: string | null;
+
+    logPath?: string | null;
+    reportPath?: string | null;
+    topPatchesJsonPath?: string | null;
+};
+
+export function getPipelineSession(id: number) {
+    return getJSON<PipelineSessionDto>(`/pipeline/sessions/${id}`);
+}
+
+export type TopPatch = {
+    rel_path?: string;
+    cls?: string;
+    conf?: number;
+    [k: string]: unknown;
+};
+
+export type PipelineResultsDto = {
+    possibleDiagnosis?: string | null;
+    tilesTotal?: number | null;
+    notBackgroundTotal?: number | null;
+    backgroundTotal?: number | null;
+    aptoTotal?: number | null;
+    noAptoTotal?: number | null;
+
+    topPatches?: TopPatch[];
+
+    pipelineReportJson?: string;
+};
+
+export function getPipelineResults(id: number) {
+    return getJSON<PipelineResultsDto>(`/pipeline/sessions/${id}/results`);
+}
+
+/** helper para armar URL a artifacts de la sesión */
+export function sessionFileUrl(sessionId: number, relativePath: string) {
+    return joinUrl(API, `/pipeline/sessions/${sessionId}/files/${relativePath}`);
+}
