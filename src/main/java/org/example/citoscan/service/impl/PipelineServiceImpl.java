@@ -6,9 +6,10 @@ import org.example.citoscan.repository.PipelineSessionRepository;
 import org.example.citoscan.security.AppUserDetails;
 import org.example.citoscan.service.PipelineService;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -27,19 +28,8 @@ public class PipelineServiceImpl implements PipelineService {
         return Paths.get(pipelineRoot).toAbsolutePath().normalize();
     }
 
-    @Value("${pipeline.exec:local}")
-    private String execMode;
-
-    @Value("${pipeline.python:}")
-    private String pythonBinLocal;
-
-    @Value("${pipeline.wsl.distro:}")
-    private String wslDistro;
-
-    @Value("${pipeline.wsl.python:./venv/bin/python}")
-    private String wslPython;
-
     private final PipelineSessionRepository repo;
+    private final PipelineRunner pipelineRunner; // Bean separado que ejecuta el pipeline
 
     private static final long MAX_SIZE = 5L * 1024 * 1024 * 1024; // 5 GB
     private static final Set<String> ALLOWED = Set.of(".svs", ".png", ".jpg", ".jpeg");
@@ -51,31 +41,25 @@ public class PipelineServiceImpl implements PipelineService {
         base = base.replaceAll("[^A-Za-z0-9._ -]", "_");
         return base;
     }
-
     private static String extOf(String name) {
         if (name == null) return "";
         int i = name.lastIndexOf('.');
         return (i >= 0) ? name.substring(i).toLowerCase() : "";
     }
-
     private static String baseNameWithoutExt(String filename) {
         int i = filename.lastIndexOf('.');
         return (i >= 0) ? filename.substring(0, i) : filename;
     }
-
     private static String normalizeExt(String ext) {
         if (".jpeg".equals(ext)) return ".jpg";
         return ext;
     }
-
     private static boolean isAllowedExt(String ext) {
         return ALLOWED.contains(ext);
     }
-
     private static String guessExt(MultipartFile f) {
         String ext = normalizeExt(extOf(f.getOriginalFilename()));
         if (isAllowedExt(ext)) return ext;
-
         String ct = f.getContentType();
         if (ct != null) {
             switch (ct) {
@@ -86,7 +70,6 @@ public class PipelineServiceImpl implements PipelineService {
         }
         return ".svs";
     }
-
     private static Path ensureUnique(Path dir, String filename) {
         Path p = dir.resolve(filename);
         if (!Files.exists(p)) return p;
@@ -103,20 +86,6 @@ public class PipelineServiceImpl implements PipelineService {
     private Long currentUserId() {
         var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
         return ((AppUserDetails) auth.getPrincipal()).getId();
-    }
-
-    private String toWslPath(Path p) {
-        String abs = p.toAbsolutePath().normalize().toString();
-        if (abs.length() >= 2 && abs.charAt(1) == ':') {
-            String drive = ("" + Character.toLowerCase(abs.charAt(0)));
-            String rest = abs.substring(2).replace("\\", "/");
-            return "/mnt/" + drive + "/" + rest;
-        }
-        return abs;
-    }
-
-    private String shQuote(String s) {
-        return "'" + s.replace("'", "'\\''") + "'";
     }
 
     @Override
@@ -143,10 +112,12 @@ public class PipelineServiceImpl implements PipelineService {
         Path inputDir     = sessionDir.resolve("input");
         Path logsDir      = sessionDir.resolve("artifacts").resolve("logs");
         Path reportsDir   = sessionDir.resolve("artifacts").resolve("reports");
+        Path workspaceDir = sessionDir.resolve("workspace");
 
         Files.createDirectories(inputDir);
         Files.createDirectories(logsDir);
         Files.createDirectories(reportsDir);
+        Files.createDirectories(workspaceDir);
 
         String originalSan = sanitizeFilename(svsFile.getOriginalFilename());
         String base        = baseNameWithoutExt(originalSan);
@@ -162,139 +133,32 @@ public class PipelineServiceImpl implements PipelineService {
 
         String cleanName = base + ext;
         Path svsPath     = ensureUnique(inputDir, cleanName);
-
         svsFile.transferTo(svsPath.toFile());
 
-        s.setSlideName(svsPath.getFileName().toString()); // el nombre final único
+        Path tilesPath = workspaceDir.resolve("01_tiles");
+        Path cellsRawPredsDir = workspaceDir.resolve("05_cells").resolve("apto").resolve("raw_preds");
+        Files.createDirectories(tilesPath);
+        Files.createDirectories(cellsRawPredsDir);
+
+        s.setSlideName(svsPath.getFileName().toString());
         s.setStoragePath(sessionDir.toString());
+        s.setTilesPath(tilesPath.toString());
+        s.setCellsPredsPath(cellsRawPredsDir.toString());
         s.setLogPath(logsDir.resolve("pipeline.log").toString());
         s.setReportPath(reportsDir.resolve("pipeline_report.json").toString());
         repo.save(s);
 
-        runAsync(s.getId(), svsPath, sessionDir, opts, logsDir, reportsDir);
+        final Long sessionId = s.getId();
+        final Map<String, String> optsCopy = (opts == null) ? Map.of() : new LinkedHashMap<>(opts);
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override public void afterCommit() {
+                pipelineRunner.runAsync(
+                        sessionId, svsPath, sessionDir, optsCopy, logsDir, reportsDir
+                );
+            }
+        });
+
         return s;
-    }
-
-    @Async
-    protected void runAsync(Long id, Path svsPath, Path sessionDir, Map<String, String> opts, Path logsDir, Path reportsDir) {
-        PipelineSession s = repo.findById(id).orElseThrow();
-        s.setStatus("RUNNING");
-        s.setStartedAt(Instant.now());
-        repo.save(s);
-
-        Long userId = s.getUserId();
-
-        Path pipeRoot = root();
-        Path logFile  = logsDir.resolve("pipeline.log");
-        Path report   = reportsDir.resolve("pipeline_report.json");
-
-        try {
-            Files.createDirectories(logsDir);
-            int exit;
-
-            if ("wsl".equalsIgnoreCase(execMode)) {
-                String wslCwd      = toWslPath(pipeRoot);
-                String wslConfig   = toWslPath(pipeRoot.resolve("configs").resolve("defaults.yaml"));
-                String wslSessDir  = toWslPath(sessionDir);
-
-                List<String> inner = new ArrayList<>();
-                inner.add("cd " + shQuote(wslCwd));
-                inner.add("export PIPELINE_PYTHON=" + shQuote(wslPython));
-
-                StringBuilder pyCmd = new StringBuilder();
-                pyCmd.append(shQuote(wslPython)).append(" scripts/run_pipeline.py");
-                pyCmd.append(" --session_id ").append(id);
-                pyCmd.append(" --user_id ").append(userId);
-                pyCmd.append(" --session_dir ").append(shQuote(wslSessDir));
-                pyCmd.append(" --config ").append(shQuote(wslConfig));
-
-                opts.forEach((k, v) -> {
-                    if (k != null && v != null) {
-                        pyCmd.append(" --").append(k).append(" ").append(shQuote(v));
-                    }
-                });
-
-                inner.add(pyCmd.toString());
-                String bashCmd = String.join(" && ", inner);
-
-                List<String> cmd = (wslDistro == null || wslDistro.isBlank())
-                        ? List.of("wsl.exe", "bash", "-lc", bashCmd)
-                        : List.of("wsl.exe", "-d", wslDistro, "bash", "-lc", bashCmd);
-
-                Files.writeString(
-                        logFile,
-                        "mode=WSL\nwsl.cwd=" + wslCwd + "\nwsl.cmd=" + bashCmd + "\n",
-                        StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING
-                );
-
-                ProcessBuilder pb = new ProcessBuilder(cmd);
-                pb.environment().putIfAbsent("TF_FORCE_GPU_ALLOW_GROWTH", "1");
-                pb.redirectErrorStream(true);
-                pb.redirectOutput(logFile.toFile());
-                exit = pb.start().waitFor();
-
-            } else {
-                Path runner = pipeRoot.resolve("scripts").resolve("run_pipeline.py");
-                String cfg  = pipeRoot.resolve("configs").resolve("defaults.yaml").toString();
-
-                List<String> cmd = new ArrayList<>();
-                String bin = (pythonBinLocal != null && !pythonBinLocal.isBlank()) ? pythonBinLocal : null;
-                if (bin == null || bin.isBlank()) bin = "python3";
-                cmd.add(bin);
-                cmd.add(runner.toString());
-                cmd.add("--session_id");   cmd.add(String.valueOf(id));
-                cmd.add("--user_id");      cmd.add(String.valueOf(userId));
-                cmd.add("--session_dir");  cmd.add(sessionDir.toString());
-                cmd.add("--config");       cmd.add(cfg);
-
-                opts.forEach((k, v) -> {
-                    if (k != null && v != null) {
-                        cmd.add("--" + k);
-                        cmd.add(v);
-                    }
-                });
-
-                Files.writeString(
-                        logFile,
-                        "mode=LOCAL\ncwd=" + pipeRoot + "\ncmd=" + String.join(" ", cmd) + "\n",
-                        StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING
-                );
-
-                ProcessBuilder pb = new ProcessBuilder(cmd);
-                pb.environment().putIfAbsent("TF_FORCE_GPU_ALLOW_GROWTH", "1");
-                pb.directory(pipeRoot.toFile());
-                pb.redirectErrorStream(true);
-                pb.redirectOutput(logFile.toFile());
-                exit = pb.start().waitFor();
-            }
-
-            Files.writeString(logFile, "\n--- EXIT CODE: " + exit + " ---\n",
-                    StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-
-            if (exit == 0 && Files.exists(report)) {
-                try {
-                    var node = new com.fasterxml.jackson.databind.ObjectMapper()
-                            .readTree(Files.readString(report));
-                    if (node.has("apt")) {
-                        var apt = node.get("apt");
-                        if (apt.has("kept_apto"))    s.setKeptApto(apt.get("kept_apto").asInt());
-                        if (apt.has("kept_no_apto")) s.setKeptNoApto(apt.get("kept_no_apto").asInt());
-                        if (apt.has("apto_ratio"))   s.setAptoRatio(apt.get("apto_ratio").asDouble());
-                        if (apt.has("threshold_used")) s.setThresholdUsed(apt.get("threshold_used").asDouble());
-                        if (apt.has("batch_size"))     s.setBatchSize(apt.get("batch_size").asInt());
-                        if (apt.has("link_strategy"))  s.setLinkStrategy(apt.get("link_strategy").asText(null));
-                    }
-                } catch (Exception ignore) { }
-                s.setStatus("DONE");
-            } else {
-                s.setStatus("ERROR");
-            }
-        } catch (Exception ex) {
-            s.setStatus("ERROR");
-        } finally {
-            s.setFinishedAt(Instant.now());
-            repo.save(s);
-        }
     }
 
     @Override

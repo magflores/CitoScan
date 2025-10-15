@@ -1,5 +1,6 @@
 package org.example.citoscan.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.citoscan.model.PipelineSession;
 import org.example.citoscan.service.PipelineService;
 import org.springframework.core.io.FileSystemResource;
@@ -17,7 +18,7 @@ import lombok.RequiredArgsConstructor;
 
 import java.io.IOException;
 import java.nio.file.*;
-import java.util.Map;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/pipeline")
@@ -25,6 +26,7 @@ import java.util.Map;
 public class PipelineController {
 
     private final PipelineService pipelineService;
+    private final ObjectMapper om = new ObjectMapper();
 
     @PostMapping("/sessions")
     public PipelineSession create(@RequestParam("file") MultipartFile file,
@@ -43,8 +45,37 @@ public class PipelineController {
     @GetMapping("/sessions/{id}/report")
     public ResponseEntity<String> report(@PathVariable Long id) throws IOException {
         String json = pipelineService.readReportJson(id);
-        MediaType mt = MediaType.APPLICATION_JSON;
-        return ResponseEntity.ok().contentType(mt).body(json);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(json);
+    }
+
+    @GetMapping("/sessions/{id}/results")
+    public ResponseEntity<Map<String, Object>> results(@PathVariable Long id) throws IOException {
+        PipelineSession s = pipelineService.get(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "session not found"));
+
+        List<Map<String, Object>> top = Collections.emptyList();
+        if (s.getTopPatchesJsonPath() != null && !s.getTopPatchesJsonPath().isBlank()) {
+            Path tp = Paths.get(s.getTopPatchesJsonPath());
+            if (Files.exists(tp)) {
+                top = om.readValue(Files.readString(tp), List.class);
+            }
+        }
+
+        String reportJson = pipelineService.readReportJson(id);
+
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("possibleDiagnosis", s.getPossibleDiagnosis());
+        out.put("tilesTotal",        s.getTilesTotal());
+        out.put("notBackgroundTotal",s.getNotBackgroundTotal());
+        out.put("backgroundTotal",   s.getBackgroundTotal());
+        out.put("aptoTotal",         s.getAptoTotal());
+        out.put("noAptoTotal",       s.getNoAptoTotal());
+        out.put("topPatches",        top);
+        out.put("pipelineReportJson",reportJson);
+
+        return ResponseEntity.ok(out);
     }
 
     @GetMapping("/sessions/{id}/files/**")
