@@ -316,12 +316,13 @@ export default function Home() {
 
                     {error && <div className="dropzone__error">{error}</div>}
 
-                    {sessionId && !error && (
-                        <div className="home__success">
-                            Sesión creada: <strong>#{sessionId}</strong>{" "}
-                            <a href={`/pipeline/sessions/${sessionId}`}>ver detalles</a>
-                        </div>
-                    )}
+                    {/*TODO: No se si hace falta esto*/}
+                    {/*{sessionId && !error && (*/}
+                    {/*    <div className="home__success">*/}
+                    {/*        Sesión creada: <strong>#{sessionId}</strong>{" "}*/}
+                    {/*        <a href={`/pipeline/sessions/${sessionId}`}>ver detalles</a>*/}
+                    {/*    </div>*/}
+                    {/*)}*/}
 
                     {/*@TODO: fix size of loaderGif*/}
                     {uploading && (
@@ -353,11 +354,11 @@ export default function Home() {
                                 <div className="value">{results.possibleDiagnosis || "—"}</div>
                             </div>
                             <div className="home__card">
-                                <div className="label">Tiles totales</div>
+                                <div className="label">Parches totales</div>
                                 <div className="value">{results.tilesTotal ?? "—"}</div>
                             </div>
                             <div className="home__card">
-                                <div className="label">No Fondo</div>
+                                <div className="label">No Fondo (Descartado)</div>
                                 <div className="value">{results.notBackgroundTotal ?? "—"}</div>
                             </div>
                             <div className="home__card">
@@ -369,7 +370,7 @@ export default function Home() {
                                 <div className="value">{results.aptoTotal ?? "—"}</div>
                             </div>
                             <div className="home__card">
-                                <div className="label">No Apto</div>
+                                <div className="label">No Apto (Descartado)</div>
                                 <div className="value">{results.noAptoTotal ?? "—"}</div>
                             </div>
                         </div>
