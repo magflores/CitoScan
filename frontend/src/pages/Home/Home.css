@@ -8,6 +8,13 @@
     font-weight: 500;
 }
 
+.home__loader {
+    width: 350px;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
 .dropzone {
     border: 2px dashed #e3e5e8;
     border-radius: 16px;

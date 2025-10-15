@@ -197,7 +197,7 @@ export default function Home() {
         if (status === "RUNNING") {
             return (
                 <div className="home__status busy">
-                    <img src={loaderGif} alt="" />
+                    <img src={loaderGif} alt="" className="home__loader" />
                     <span>Analizando…</span>
                 </div>
             );
@@ -215,6 +215,7 @@ export default function Home() {
         <>
             {/*@TODO: Update view to show results*/}
             <Header mode="auth" />
+
             <div className="home">
                 <p className="home__lead">Empezá tu análisis</p>
 
@@ -243,8 +244,7 @@ export default function Home() {
                                 />
                                 {loadingPreview && (
                                     <div className="dropzone__previewLoader">
-                                        {/*@TODO: fix size of loaderGif*/}
-                                        <img src={loaderGif} alt="" />
+                                        <img src={loaderGif} alt="" className="home__loader" />
                                         <span>Cargando vista previa...</span>
                                     </div>
                                 )}
@@ -324,10 +324,9 @@ export default function Home() {
                     {/*    </div>*/}
                     {/*)}*/}
 
-                    {/*@TODO: fix size of loaderGif*/}
                     {uploading && (
                         <div className="home__uploading">
-                            <img src={loaderGif} alt="" />
+                            <img src={loaderGif} alt="" className="home__loader" />
                             <span>Subiendo archivo y analizando…</span>
                         </div>
                     )}
