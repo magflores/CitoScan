@@ -357,11 +357,11 @@ export default function Home() {
                                 <div className="value">{results.tilesTotal ?? "—"}</div>
                             </div>
                             <div className="home__card">
-                                <div className="label">No Fondo (Descartado)</div>
+                                <div className="label">No Fondo </div>
                                 <div className="value">{results.notBackgroundTotal ?? "—"}</div>
                             </div>
                             <div className="home__card">
-                                <div className="label">Fondo</div>
+                                <div className="label">Fondo (Descartado)</div>
                                 <div className="value">{results.backgroundTotal ?? "—"}</div>
                             </div>
                             <div className="home__card">

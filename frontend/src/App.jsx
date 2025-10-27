@@ -5,7 +5,7 @@ import Login from "./pages/Auth/Login/Login.jsx";
 import NotFound from "./pages/NotFound/NotFound.jsx";
 import Register from "./pages/Auth/Register/Register.jsx";
 import Home from "./pages/Home/Home.jsx";
-import {RequireAuth, PublicOnly, RootRoute, isAuthed} from "./router/guards.jsx";
+import {RequireAuth, PublicOnly, RootRoute, isAuthed} from "./router/Guards.jsx";
 
 export default function App() {
     return (
