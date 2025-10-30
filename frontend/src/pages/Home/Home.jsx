@@ -124,8 +124,13 @@ export default function Home() {
         setDragOver(false);
         validateAndSet(e.dataTransfer.files?.[0]);
     }
-    function onDragOver(e) { e.preventDefault(); setDragOver(true); }
-    function onDragLeave() { setDragOver(false); }
+    function onDragOver(e) {
+        e.preventDefault();
+        setDragOver(true);
+    }
+    function onDragLeave() {
+        setDragOver(false);
+    }
 
     const isBusy = status === "QUEUED" || status === "RUNNING" || uploading;
     const canAnalyze = useMemo(
@@ -157,7 +162,7 @@ export default function Home() {
 
     async function startPolling(id) {
         stopPolling();
-        await refreshSession(id); // primer tick inmediato
+        await refreshSession(id);
         pollRef.current = setInterval(() => refreshSession(id), POLL_MS);
     }
 
@@ -187,230 +192,235 @@ export default function Home() {
         }
     }
 
-    const hasFile = !!file;
-    const hasPreview = !!previewUrl;
+    function handleBack() {
+        clearFile();
+    }
 
-    const statusBanner = (() => {
-        if (status === "QUEUED") {
-            return <div className="home__status info">Iniciando proceso…</div>;
-        }
-        if (status === "RUNNING") {
-            return (
-                <div className="home__status busy">
-                    <img src={loaderGif} alt="" className="home__loader" />
-                    <span>Analizando…</span>
-                </div>
-            );
-        }
-        if (status === "DONE") {
-            return <div className="home__status ok">Análisis finalizado</div>;
-        }
-        if (status === "ERROR") {
-            return <div className="home__status error">Ocurrió un error en el análisis</div>;
-        }
-        return null;
-    })();
+    const processingUI = (
+        <div className="home__processing">
+            <div className="home__status busy" aria-live="polite">
+                <img src={loaderGif} alt="" className="home__loader" />
+            </div>
+            <div className="home__actions">
+                <Button variant="muted" tone="blue" disabled className="home__analyze">
+                    Procesando…
+                </Button>
+            </div>
+        </div>
+    );
 
-    return (
-        <>
-            {/*@TODO: Update view to show results*/}
-            <Header mode="auth" />
-
-            <div className="home">
-                <p className="home__lead">Empezá tu análisis</p>
-
-                {statusBanner}
-
-                <div
-                    className={`dropzone ${dragOver ? "is-over" : ""}`}
-                    onDragOver={onDragOver}
-                    onDragLeave={onDragLeave}
-                    onDrop={onDrop}
-                    role="region"
-                    aria-label="Zona para soltar archivo"
-                >
-                    <div className="dropzone__canvas">
-                        {hasPreview ? (
-                            <>
-                                <img
-                                    src={previewUrl}
-                                    alt={file?.name || "Vista previa"}
-                                    className="dropzone__img"
-                                    onLoad={() => setLoadingPreview(false)}
-                                    onError={() => {
-                                        setLoadingPreview(false);
-                                        setError("No se pudo cargar la vista previa.");
-                                    }}
-                                />
-                                {loadingPreview && (
-                                    <div className="dropzone__previewLoader">
-                                        <img src={loaderGif} alt="" className="home__loader" />
-                                        <span>Cargando vista previa...</span>
-                                    </div>
-                                )}
-                            </>
-                        ) : hasFile ? (
-                            <div className="dropzone__empty">
-                                <div className="dropzone__icon" aria-hidden>⤴</div>
-                                <div className="dropzone__text">
-                                    Vista previa no disponible. Arrastrá otra imagen o{" "}
-                                    <button type="button" className="dropzone__link" onClick={browseFile} disabled={isBusy}>
-                                        subí un archivo
-                                    </button>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="dropzone__empty">
-                                <div className="dropzone__icon" aria-hidden>⤴</div>
-                                <div className="dropzone__text">
-                                    Arrastrá una imagen o{" "}
-                                    <button
-                                        type="button"
-                                        className="text-link"
-                                        onClick={browseFile}
-                                        disabled={isBusy}
-                                    >
-                                        subí un archivo
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+    const resultsUI =
+        status === "DONE" &&
+        results && (
+            <div className="home__resultsOnly">
+                <h3>Resultados</h3>
+                <div className="home__grid">
+                    <div className="home__card">
+                        <div className="label">Diagnóstico posible</div>
+                        <div className="value">{results.possibleDiagnosis || "—"}</div>
                     </div>
-
-                    <input
-                        ref={inputRef}
-                        type="file"
-                        accept={ACCEPT_EXT.join(",")}
-                        className="dropzone__input"
-                        onChange={onInputChange}
-                        disabled={isBusy}
-                    />
+                    <div className="home__card">
+                        <div className="label">Parches totales</div>
+                        <div className="value">{results.tilesTotal ?? "—"}</div>
+                    </div>
+                    <div className="home__card">
+                        <div className="label">Apto</div>
+                        <div className="value">{results.aptoTotal ?? "—"}</div>
+                    </div>
+                    <div className="home__card">
+                        <div className="label">No Apto (Descartado)</div>
+                        <div className="value">{results.noAptoTotal ?? "—"}</div>
+                    </div>
+                    <div className="home__card">
+                        <div className="label">No Fondo</div>
+                        <div className="value">{results.notBackgroundTotal ?? "—"}</div>
+                    </div>
+                    <div className="home__card">
+                        <div className="label">Fondo (Descartado)</div>
+                        <div className="value">{results.backgroundTotal ?? "—"}</div>
+                    </div>
                 </div>
 
-                <div className="home__below">
-                    {!hasFile ? (
-                        <div className="home__metaRow">
-                            <span>Formatos admitidos: .svs, .png, .jpg</span>
-                            <span>Tamaño máximo: 5GB</span>
-                        </div>
-                    ) : (
-                        <div className="home__fileRow">
-                            <div className="home__filename" title={file.name}>{file.name}</div>
-                            <button
-                                type="button"
-                                className="home__remove"
-                                onClick={clearFile}
-                                title="Quitar archivo"
-                                aria-label="Quitar archivo"
-                                disabled={isBusy}
-                            >
-                                <svg viewBox="0 0 24 24" className="home__trash" aria-hidden>
-                                    <path
-                                        d="M9 3h6a1 1 0 0 1 1 1v1h4v2H4V5h4V4a1 1 0 0 1 1-1Zm1 2h4V5h-4Zm-3 6h2v8H7v-8Zm10 0v8h-2v-8h2ZM11 11h2v8h-2v-8Z"
-                                        fill="currentColor"
-                                    />
-                                </svg>
-                            </button>
-                        </div>
-                    )}
-
-                    {error && <div className="dropzone__error">{error}</div>}
-
-                    {/*TODO: No se si hace falta esto*/}
-                    {/*{sessionId && !error && (*/}
-                    {/*    <div className="home__success">*/}
-                    {/*        Sesión creada: <strong>#{sessionId}</strong>{" "}*/}
-                    {/*        <a href={`/pipeline/sessions/${sessionId}`}>ver detalles</a>*/}
-                    {/*    </div>*/}
-                    {/*)}*/}
-
-                    {uploading && (
-                        <div className="home__uploading">
-                            <img src={loaderGif} alt="" className="home__loader" />
-                            <span>Subiendo archivo y analizando…</span>
-                        </div>
-                    )}
-                </div>
-
-                <div className="home__actions">
-                    <Button
-                        variant="muted"
-                        tone="blue"
-                        disabled={!canAnalyze}
-                        onClick={onAnalyze}
-                        className="home__analyze"
-                    >
-                        {isBusy ? "Procesando…" : "Analizar"}
-                    </Button>
-                </div>
-
-                {status === "DONE" && results && (
-                    <div className="home__results">
-                        <h3>Resultados</h3>
-                        <div className="home__grid">
-                            <div className="home__card">
-                                <div className="label">Diagnóstico posible</div>
-                                <div className="value">{results.possibleDiagnosis || "—"}</div>
-                            </div>
-                            <div className="home__card">
-                                <div className="label">Parches totales</div>
-                                <div className="value">{results.tilesTotal ?? "—"}</div>
-                            </div>
-                            <div className="home__card">
-                                <div className="label">No Fondo </div>
-                                <div className="value">{results.notBackgroundTotal ?? "—"}</div>
-                            </div>
-                            <div className="home__card">
-                                <div className="label">Fondo (Descartado)</div>
-                                <div className="value">{results.backgroundTotal ?? "—"}</div>
-                            </div>
-                            <div className="home__card">
-                                <div className="label">Apto</div>
-                                <div className="value">{results.aptoTotal ?? "—"}</div>
-                            </div>
-                            <div className="home__card">
-                                <div className="label">No Apto (Descartado)</div>
-                                <div className="value">{results.noAptoTotal ?? "—"}</div>
-                            </div>
-                        </div>
-
-                        {Array.isArray(results.topPatches) && results.topPatches.length > 0 && (
-                            <div className="home__top">
-                                <h4>Top patches</h4>
-                                <ul className="home__topList">
-                                    {results.topPatches.slice(0, 10).map((t, i) => (
-                                        <li key={i}>
-                                            <code>{t.rel_path || "?"}</code> — {t.cls || "?"} ({(t.conf ?? 0).toFixed(3)})
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        )}
+                {Array.isArray(results.topPatches) && results.topPatches.length > 0 && (
+                    <div className="home__top">
+                        <h4>Top patches</h4>
+                        <ul className="home__topList">
+                            {results.topPatches.slice(0, 10).map((t, i) => (
+                                <li key={i}>
+                                    <code>{t.rel_path || "?"}</code> — {t.cls || "?"} (
+                                    {(t.conf ?? 0).toFixed(3)})
+                                </li>
+                            ))}
+                        </ul>
                     </div>
                 )}
 
-                <Modal open={showWelcome} onClose={closeWelcome}>
-                    <div className="home__welcome">
-                        <p>
-                            Bienvenido a CitoScan, tu sitio para realizar análisis de imágenes
-                            de Papanicolau.<br />Si querés saber más sobre nosotros y cómo funciona la
-                            página, <a href="/info">hacé click aquí</a>.
-                        </p>
-                        <label className="home__welcome-check">
+                <div className="home__actions">
+                    <Button variant="outline" tone="blue" onClick={handleBack}>
+                        Volver
+                    </Button>
+                </div>
+            </div>
+        );
+
+    // Render por estados:
+    return (
+        <>
+            <Header mode="auth" />
+            <div className="home">
+                {/* Solo procesamiento */}
+                {isBusy && processingUI}
+
+                {/* Solo resultados */}
+                {!isBusy && resultsUI}
+
+                {/* Pantalla normal cuando no procesa ni hay resultados */}
+                {!isBusy && !results && (
+                    <>
+                        <p className="home__lead">Empezá tu análisis</p>
+                        {error && <div className="dropzone__error">{error}</div>}
+
+                        <div
+                            className={`dropzone ${dragOver ? "is-over" : ""}`}
+                            onDragOver={onDragOver}
+                            onDragLeave={onDragLeave}
+                            onDrop={onDrop}
+                            role="region"
+                            aria-label="Zona para soltar archivo"
+                        >
+                            <div className="dropzone__canvas">
+                                {previewUrl ? (
+                                    <>
+                                        <img
+                                            src={previewUrl}
+                                            alt={file?.name || "Vista previa"}
+                                            className="dropzone__img"
+                                            onLoad={() => setLoadingPreview(false)}
+                                            onError={() => {
+                                                setLoadingPreview(false);
+                                                setError("No se pudo cargar la vista previa.");
+                                            }}
+                                        />
+                                        {loadingPreview && (
+                                            <div className="dropzone__previewLoader">
+                                                <img src={loaderGif} alt="" className="home__loader" />
+                                                <span>Cargando vista previa...</span>
+                                            </div>
+                                        )}
+                                    </>
+                                ) : file ? (
+                                    <div className="dropzone__empty">
+                                        <div className="dropzone__icon" aria-hidden>
+                                            ⤴
+                                        </div>
+                                        <div className="dropzone__text">
+                                            Vista previa no disponible. Arrastrá otra imagen o{" "}
+                                            <button
+                                                type="button"
+                                                className="dropzone__link"
+                                                onClick={browseFile}
+                                                disabled={isBusy}
+                                            >
+                                                subí un archivo
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="dropzone__empty">
+                                        <div className="dropzone__icon" aria-hidden>
+                                            ⤴
+                                        </div>
+                                        <div className="dropzone__text">
+                                            Arrastrá una imagen o{" "}
+                                            <button
+                                                type="button"
+                                                className="text-link"
+                                                onClick={browseFile}
+                                                disabled={isBusy}
+                                            >
+                                                subí un archivo
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
                             <input
-                                type="checkbox"
-                                checked={hideWelcome}
-                                onChange={(e) => setHideWelcome(e.target.checked)}
+                                ref={inputRef}
+                                type="file"
+                                accept={ACCEPT_EXT.join(",")}
+                                className="dropzone__input"
+                                onChange={onInputChange}
+                                disabled={isBusy}
                             />
-                            <span>No volver a mostrar este mensaje</span>
-                        </label>
-                        <div className="home__welcome-actions">
-                            <Button variant="outline" tone="pink" onClick={closeWelcome}>
-                                Cerrar
+                        </div>
+
+                        <div className="home__below">
+                            {!file ? (
+                                <div className="home__metaRow">
+                                    <span>Formatos admitidos: .svs, .png, .jpg</span>
+                                    <span>Tamaño máximo: 5GB</span>
+                                </div>
+                            ) : (
+                                <div className="home__fileRow">
+                                    <div className="home__filename" title={file.name}>
+                                        {file.name}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="home__remove"
+                                        onClick={clearFile}
+                                        title="Quitar archivo"
+                                        aria-label="Quitar archivo"
+                                        disabled={isBusy}
+                                    >
+                                        <svg viewBox="0 0 24 24" className="home__trash" aria-hidden>
+                                            <path
+                                                d="M9 3h6a1 1 0 0 1 1 1v1h4v2H4V5h4V4a1 1 0 0 1 1-1Zm1 2h4V5h-4Zm-3 6h2v8H7v-8Zm10 0v8h-2v-8h2ZM11 11h2v8h-2v-8Z"
+                                                fill="currentColor"
+                                            />
+                                        </svg>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="home__actions">
+                            <Button
+                                variant="muted"
+                                tone="blue"
+                                disabled={!canAnalyze}
+                                onClick={onAnalyze}
+                                className="home__analyze"
+                            >
+                                Analizar
                             </Button>
                         </div>
-                    </div>
-                </Modal>
+
+                        <Modal open={showWelcome} onClose={closeWelcome}>
+                            <div className="home__welcome">
+                                <p>
+                                    Bienvenido a CitoScan, tu sitio para realizar análisis de imágenes
+                                    de Papanicolau.<br />Si querés saber más sobre nosotros y cómo
+                                    funciona la página, <a href="/info">hacé click aquí</a>.
+                                </p>
+                                <label className="home__welcome-check">
+                                    <input
+                                        type="checkbox"
+                                        checked={hideWelcome}
+                                        onChange={(e) => setHideWelcome(e.target.checked)}
+                                    />
+                                    <span>No volver a mostrar este mensaje</span>
+                                </label>
+                                <div className="home__welcome-actions">
+                                    <Button variant="outline" tone="pink" onClick={closeWelcome}>
+                                        Cerrar
+                                    </Button>
+                                </div>
+                            </div>
+                        </Modal>
+                    </>
+                )}
             </div>
         </>
     );
