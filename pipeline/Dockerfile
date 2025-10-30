@@ -3,12 +3,18 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 ENV CUDA_VISIBLE_DEVICES=""
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl libvips openslide-tools && \
-    rm -rf /var/lib/apt/lists/*
-
 COPY requirements.txt .
 RUN pip install -r requirements.txt && pip install fastapi uvicorn
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 libglib2.0-0 libsm6 libxext6 libxrender1 \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libvips libvips-tools libopenslide0 openslide-tools \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir pyvips openslide-python
 
 COPY . .
 EXPOSE 5000

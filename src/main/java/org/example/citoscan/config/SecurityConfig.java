@@ -2,7 +2,6 @@ package org.example.citoscan.config;
 
 import lombok.RequiredArgsConstructor;
 import org.example.citoscan.security.JwtAuthFilter;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -60,6 +59,7 @@ public class SecurityConfig {
         CorsConfiguration cfg = new CorsConfiguration();
         cfg.setAllowedOrigins(List.of(
                 "http://localhost",
+                "http://localhost:5173/",
                 "http://localhost:80",
                 "http://127.0.0.1"
         ));

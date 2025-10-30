@@ -11,7 +11,7 @@ matplotlib
 tensorflow>=2.14
 
 # --- Image processing ---
-opencv-python-headless<5.0.0
+opencv-python
 pillow>=10.0
 pyvips
 openslide-python>=1.3
