@@ -19,6 +19,8 @@ services:
   backend:
     build: .
     environment:
+      TF_ENABLE_ONEDNN_OPTS: "0"
+      TF_CPP_MIN_LOG_LEVEL: "2"
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/citoscan
       SPRING_DATASOURCE_USERNAME: citoscan
       SPRING_DATASOURCE_PASSWORD: citoscan
@@ -39,11 +41,28 @@ services:
     build:
       context: ./frontend
       args:
-        VITE_API_URL: http://localhost:8080/api
+        VITE_API_URL: http://backend:8080/api
     depends_on:
       - backend
     ports:
       - "80:80"
+
+  frontend-dev:
+    build:
+      context: ./frontend
+      target: dev
+    environment:
+      VITE_API_URL: http://backend:8080/api
+      CHOKIDAR_USEPOLLING: "true"
+    working_dir: /app
+    command: [ "npm","run","dev","--","--host","0.0.0.0","--strictPort" ]
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
 
   pipeline:
     build:

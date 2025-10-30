@@ -5,6 +5,7 @@ from typing import List, Dict, Optional
 import torch
 from ultralytics import YOLO
 from utils.io_utils import ensure_dir
+os.environ.setdefault("CUDA_VISIBLE_DEVICES", "-1")
 
 IMG_EXTS = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"}
 
@@ -58,7 +59,7 @@ def main():
     ap.add_argument("--stats-out", type=Path, default=None)
     args = ap.parse_args()
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cpu"
     ensure_dir(args.out_dir)
     raw_dir = args.out_dir / "raw_preds"; ensure_dir(raw_dir)
     pos_dir = args.out_dir / "positive"
@@ -66,7 +67,7 @@ def main():
     ann_dir = args.out_dir / "annotated"
     byc_dir = args.out_dir / "by_class"
 
-    model = YOLO(str(args.weights))
+    model.to(device)
     names: Dict[int, str] = model.names  # {id: nombre}
 
     paths = list_images(args.in_dir)
@@ -84,7 +85,7 @@ def main():
         imgsz=args.imgsz,
         conf=args.conf,
         iou=args.iou,
-        device=0 if device=="cuda" else "cpu",
+        device=device,
         classes=args.classes,        # None => todas
         stream=False,
         save=args.save_annot,
