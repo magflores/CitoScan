@@ -1,7 +1,9 @@
-import argparse, os, csv, json, shutil
-from pathlib import Path
-from typing import List, Dict, Optional
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
+import argparse, csv, json, shutil
+from pathlib import Path
+from typing import List, Dict
 import torch
 from ultralytics import YOLO
 from utils.io_utils import ensure_dir
@@ -47,18 +49,25 @@ def main():
     ap.add_argument("--in", dest="in_dir", type=Path, required=True)
     ap.add_argument("--out", dest="out_dir", type=Path, required=True)
     ap.add_argument("--weights", type=Path, required=True, help="Pesos YOLO (e.g., best.pt)")
-    ap.add_argument("--imgsz", type=int, default=640, help="Tamaño de inferencia (lado mayor)")
-    ap.add_argument("--conf", type=float, default=0.25, help="Umbral de confianza")
-    ap.add_argument("--iou", type=float, default=0.45, help="Umbral NMS IoU")
-    ap.add_argument("--classes", type=int, nargs="*", default=None, help="IDs a considerar (default: todas)")
+    ap.add_argument("--imgsz", type=int, default=640)
+    ap.add_argument("--conf", type=float, default=0.25)
+    ap.add_argument("--iou", type=float, default=0.45)
+    ap.add_argument("--classes", type=int, nargs="*", default=None)
     ap.add_argument("--batch-size", type=int, default=16)
     ap.add_argument("--link-strategy", choices=["symlink","hardlink","copy","none"], default="symlink")
-    ap.add_argument("--save-annot", action="store_true", help="Guardar imágenes anotadas en out/annotated")
-    ap.add_argument("--by-class-links", action="store_true", help="Crear enlaces por clase en out/by_class/<name>/")
+    ap.add_argument("--save-annot", action="store_true")
+    ap.add_argument("--by-class-links", action="store_true")
     ap.add_argument("--stats-out", type=Path, default=None)
     args = ap.parse_args()
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cpu"
+
+    model = YOLO(str(args.weights))
+    try:
+        names: Dict[int, str] = model.names
+    except Exception:
+        names = getattr(getattr(model, "model", None), "names", {}) or {}
+
     ensure_dir(args.out_dir)
     raw_dir = args.out_dir / "raw_preds"; ensure_dir(raw_dir)
     pos_dir = args.out_dir / "positive"
@@ -66,10 +75,8 @@ def main():
     ann_dir = args.out_dir / "annotated"
     byc_dir = args.out_dir / "by_class"
 
-    model = YOLO(str(args.weights))
-    names: Dict[int, str] = model.names  # {id: nombre}
+    paths = [p for p in args.in_dir.rglob("*") if p.is_file() and p.suffix.lower() in IMG_EXTS]
 
-    paths = list_images(args.in_dir)
     if not paths:
         (args.out_dir / "stats.json").write_text(json.dumps({
             "processed": 0, "saved": 0, "failed": 0, "kept_pos": 0, "kept_neg": 0,
@@ -84,13 +91,14 @@ def main():
         imgsz=args.imgsz,
         conf=args.conf,
         iou=args.iou,
-        device=0 if device=="cuda" else "cpu",
-        classes=args.classes,        # None => todas
+        device=device,
+        classes=args.classes,
         stream=False,
         save=args.save_annot,
         save_txt=False,
         save_conf=True,
-        project=str(ann_dir.parent), name=ann_dir.name if args.save_annot else None,
+        project=str(ann_dir.parent) if args.save_annot else None,
+        name=ann_dir.name if args.save_annot else None,
         verbose=False,
         batch=args.batch_size
     )
@@ -98,8 +106,7 @@ def main():
     preds_csv = raw_dir / "preds.csv"
     dets_csv  = raw_dir / "detections.csv"
 
-    kept_pos = 0
-    kept_neg = 0
+    kept_pos = kept_neg = 0
     link_strategy_used = "none" if args.link_strategy == "none" else args.link_strategy
 
     with open(preds_csv, "w", newline="") as fp, open(dets_csv, "w", newline="") as fd:
@@ -114,7 +121,7 @@ def main():
             top_cls_id = None
             counts = {}
 
-            if r.boxes is not None and len(r.boxes) > 0:
+            if hasattr(r, "boxes") and r.boxes is not None and len(r.boxes) > 0:
                 b = r.boxes
                 confs = b.conf.detach().cpu().numpy().tolist()
                 xyxy = b.xyxy.detach().cpu().numpy().tolist()
@@ -139,17 +146,13 @@ def main():
                          "" if args.classes is None else "|".join(map(str,args.classes)),
                          counts_json])
 
-            # enlaces generales positive/negative
             if args.link_strategy != "none":
                 dst = (pos_dir if label_pred==1 else neg_dir) / Path(rel)
                 link_file(p, dst, args.link_strategy)
-                if label_pred==1: kept_pos += 1
-                else: kept_neg += 1
-            else:
-                if label_pred==1: kept_pos += 1
-                else: kept_neg += 1
 
-            # enlaces por clase (opcional)
+            if label_pred==1: kept_pos += 1
+            else: kept_neg += 1
+
             if args.by_class_links and n_det > 0:
                 for cid, ccount in counts.items():
                     cname = names.get(cid, str(cid)).replace("/", "_")
@@ -158,19 +161,12 @@ def main():
 
     processed = len(paths)
     stats = {
-        "processed": processed,
-        "saved": processed,
-        "failed": 0,
-        "kept_pos": kept_pos,
-        "kept_neg": kept_neg,
+        "processed": processed, "saved": processed, "failed": 0,
+        "kept_pos": kept_pos, "kept_neg": kept_neg,
         "pos_ratio": round((kept_pos/processed), 6) if processed else 0.0,
-        "conf_used": args.conf,
-        "iou_used": args.iou,
-        "imgsz": args.imgsz,
-        "classes": args.classes,
-        "link_strategy": link_strategy_used,
-        "batch_size": args.batch_size,
-        "device": device
+        "conf_used": args.conf, "iou_used": args.iou, "imgsz": args.imgsz,
+        "classes": args.classes, "link_strategy": link_strategy_used,
+        "batch_size": args.batch_size, "device": device
     }
     (args.out_dir / "stats.json").write_text(json.dumps(stats, indent=2))
     if args.stats_out:

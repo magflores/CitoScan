@@ -25,6 +25,9 @@ public class PipelineRunner {
     @Value("${pipeline.root}")
     private String pipelineRoot;
 
+    @Value("${pipeline.url}")
+    private String pipelineUrl;
+
     @Value("${pipeline.exec:local}")
     private String execMode;
 
@@ -38,6 +41,7 @@ public class PipelineRunner {
     private String wslPython;
 
     private final PipelineSessionRepository repo;
+
 
     private Path root() {
         return Paths.get(pipelineRoot).toAbsolutePath().normalize();
@@ -61,14 +65,30 @@ public class PipelineRunner {
         if (name == null) return 0;
         String n = name.toLowerCase(Locale.ROOT).trim();
         switch (n) {
-            case "carcinoma" -> { return 8; }
-            case "carcinoma (colgajo)" -> { return 7; }
-            case "alto grado" -> { return 6; }
-            case "alto grado (colgajo)" -> { return 5; }
-            case "bajo grado" -> { return 4; }
-            case "inflamatoria" -> { return 3; }
-            case "endocervicales (grupo)" -> { return 2; }
-            case "sin lesion", "sin lesión" -> { return 1; }
+            case "carcinoma" -> {
+                return 8;
+            }
+            case "carcinoma (colgajo)" -> {
+                return 7;
+            }
+            case "alto grado" -> {
+                return 6;
+            }
+            case "alto grado (colgajo)" -> {
+                return 5;
+            }
+            case "bajo grado" -> {
+                return 4;
+            }
+            case "inflamatoria" -> {
+                return 3;
+            }
+            case "endocervicales (grupo)" -> {
+                return 2;
+            }
+            case "sin lesion", "sin lesión" -> {
+                return 1;
+            }
         }
         if (n.contains("carcinoma") && !n.contains("colgajo")) return 8;
         if (n.contains("carcinoma") && n.contains("colgajo")) return 7;
@@ -91,17 +111,73 @@ public class PipelineRunner {
         Long userId = s.getUserId();
 
         Path pipeRoot = root();
-        Path logFile  = logsDir.resolve("pipeline.log");
-        Path report   = reportsDir.resolve("pipeline_report.json");
+        Path logFile = logsDir.resolve("pipeline.log");
+        Path report = reportsDir.resolve("pipeline_report.json");
 
         try {
             Files.createDirectories(logsDir);
-            int exit;
+            Files.writeString(
+                    logFile,
+                    "mode=" + execMode + "\n",
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING
+            );
+            int exit = 1;
 
-            if ("wsl".equalsIgnoreCase(execMode)) {
-                String wslCwd      = toWslPath(pipeRoot);
-                String wslConfig   = toWslPath(pipeRoot.resolve("configs").resolve("defaults.yaml"));
-                String wslSessDir  = toWslPath(sessionDir);
+            if ("http".equalsIgnoreCase(execMode)) {
+                Files.createDirectories(logsDir);
+
+                var payload = new HashMap<String,Object>();
+                payload.put("session_id", String.valueOf(id));
+                payload.put("user_id", s.getUserId());
+                payload.put("session_dir", sessionDir.toString());
+                payload.put("config", "configs/defaults.yaml");
+                payload.putAll(opts);
+
+                var url = new java.net.URL(pipelineUrl + "/run");
+                var con = (java.net.HttpURLConnection) url.openConnection();
+                con.setDoOutput(true);
+                con.setRequestMethod("POST");
+                con.setConnectTimeout(60_000);
+                con.setReadTimeout(0); // espera hasta terminar
+                con.setRequestProperty("Content-Type","application/json");
+                try (var os = con.getOutputStream()) {
+                    os.write(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsBytes(payload));
+                }
+                int code = con.getResponseCode();
+
+                String body;
+                try (var is = (code >= 200 && code < 300) ? con.getInputStream() : con.getErrorStream()) {
+                    body = new String(is.readAllBytes());
+                }
+
+                Files.writeString(
+                        logFile,
+                        "HTTP " + code + "\n" + body + "\n",
+                        java.nio.file.StandardOpenOption.CREATE,
+                        java.nio.file.StandardOpenOption.APPEND
+                );
+
+                int exitCode = 1;
+                try {
+                    var node = new com.fasterxml.jackson.databind.ObjectMapper().readTree(body);
+                    exitCode = node.path("returncode").asInt(0); // 0 = OK por defecto si falta
+                    // opcional: también podés volcar stdout/stderr al log
+                    var tailOut = node.path("stdout").asText("");
+                    var tailErr = node.path("stderr").asText("");
+                    if (!tailOut.isEmpty() || !tailErr.isEmpty()) {
+                        Files.writeString(logFile, tailOut + "\n" + tailErr + "\n",
+                                java.nio.file.StandardOpenOption.APPEND);
+                    }
+                } catch (Exception ignore) {}
+
+                exit = exitCode;
+            }
+
+            else if ("wsl".equalsIgnoreCase(execMode)) {
+                String wslCwd = toWslPath(pipeRoot);
+                String wslConfig = toWslPath(pipeRoot.resolve("configs").resolve("defaults.yaml"));
+                String wslSessDir = toWslPath(sessionDir);
 
                 List<String> inner = new ArrayList<>();
                 inner.add("cd " + shQuote(wslCwd));
@@ -141,17 +217,21 @@ public class PipelineRunner {
 
             } else {
                 Path runner = pipeRoot.resolve("scripts").resolve("run_pipeline.py");
-                String cfg  = pipeRoot.resolve("configs").resolve("defaults.yaml").toString();
+                String cfg = pipeRoot.resolve("configs").resolve("defaults.yaml").toString();
 
                 List<String> cmd = new ArrayList<>();
                 String bin = (pythonBinLocal != null && !pythonBinLocal.isBlank()) ? pythonBinLocal : null;
                 if (bin == null || bin.isBlank()) bin = "python3";
                 cmd.add(bin);
                 cmd.add(runner.toString());
-                cmd.add("--session_id");   cmd.add(String.valueOf(id));
-                cmd.add("--user_id");      cmd.add(String.valueOf(userId));
-                cmd.add("--session_dir");  cmd.add(sessionDir.toString());
-                cmd.add("--config");       cmd.add(cfg);
+                cmd.add("--session_id");
+                cmd.add(String.valueOf(id));
+                cmd.add("--user_id");
+                cmd.add(String.valueOf(userId));
+                cmd.add("--session_dir");
+                cmd.add(sessionDir.toString());
+                cmd.add("--config");
+                cmd.add(cfg);
 
                 opts.forEach((k, v) -> {
                     if (k != null && v != null) {
@@ -182,18 +262,19 @@ public class PipelineRunner {
                     var node = new ObjectMapper().readTree(Files.readString(report));
                     if (node.has("apt")) {
                         var apt = node.get("apt");
-                        if (apt.has("kept_apto"))    s.setAptoTotal(apt.get("kept_apto").asInt());
+                        if (apt.has("kept_apto")) s.setAptoTotal(apt.get("kept_apto").asInt());
                         if (apt.has("kept_no_apto")) s.setNoAptoTotal(apt.get("kept_no_apto").asInt());
                     }
                     if (node.has("bg")) {
                         var bg = node.get("bg");
                         if (bg.has("discarded")) s.setBackgroundTotal(bg.get("discarded").asInt());
-                        if (bg.has("saved"))     s.setNotBackgroundTotal(bg.get("saved").asInt());
+                        if (bg.has("saved")) s.setNotBackgroundTotal(bg.get("saved").asInt());
                     }
                     if (node.has("tiles_total")) {
                         s.setTilesTotal(node.get("tiles_total").asInt());
                     }
-                } catch (Exception ignore) { }
+                } catch (Exception ignore) {
+                }
 
                 Path rawPredsDir = Paths.get(Optional.ofNullable(s.getCellsPredsPath())
                         .orElse(sessionDir.resolve("workspace").resolve("05_cells").resolve("apto").resolve("raw_preds").toString()));
@@ -242,7 +323,7 @@ public class PipelineRunner {
                 List<Path> list = new ArrayList<>();
                 for (Path p : ds) list.add(p);
                 Map<String, Path> byName = list.stream().collect(Collectors.toMap(
-                        x -> x.getFileName().toString().toLowerCase(Locale.ROOT), x -> x, (a,b)->a));
+                        x -> x.getFileName().toString().toLowerCase(Locale.ROOT), x -> x, (a, b) -> a));
                 if (byName.containsKey("preds.csv")) return byName.get("preds.csv");
                 if (byName.containsKey("cells_preds.csv")) return byName.get("cells_preds.csv");
                 return list.stream().findFirst().orElse(null);
@@ -266,8 +347,8 @@ public class PipelineRunner {
              CSVParser csv = CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).build().parse(in)) {
 
             for (CSVRecord r : csv) {
-                String rel  = getIfPresent(r, "rel_path");
-                String cls  = getFirstPreferText(r,
+                String rel = getIfPresent(r, "rel_path");
+                String cls = getFirstPreferText(r,
                         "top_cls_name", "cls_name", "class", "label_name", "name", "pred_name");
 
                 if (cls == null || cls.isBlank()) {
@@ -327,9 +408,11 @@ public class PipelineRunner {
         }
         return numericFallback;
     }
+
     private static String getIfPresent(CSVRecord r, String col) {
         return r.isMapped(col) ? r.get(col) : null;
     }
+
     private static String getFirst(CSVRecord r, String... cols) {
         for (String c : cols) {
             if (r.isMapped(c)) {
@@ -339,11 +422,14 @@ public class PipelineRunner {
         }
         return null;
     }
+
     private static double parseDoubleFirst(CSVRecord r, double def, String... cols) {
         for (String c : cols) {
             if (r.isMapped(c)) {
-                try { return Double.parseDouble(r.get(c)); }
-                catch (Exception ignored) {}
+                try {
+                    return Double.parseDouble(r.get(c));
+                } catch (Exception ignored) {
+                }
             }
         }
         return def;
