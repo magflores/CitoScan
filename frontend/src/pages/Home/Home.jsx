@@ -133,7 +133,6 @@ export default function Home() {
         setDragOver(false);
     }
 
-    // Cuando el pipeline termina, descargar la preview generada en el backend con auth
     useEffect(() => {
         if (status !== "DONE" || sessionId == null) return;
 

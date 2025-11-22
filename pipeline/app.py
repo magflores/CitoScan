@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 import subprocess, shlex, os
@@ -28,6 +28,11 @@ class RunReq(BaseModel):
     cells_batch: Optional[int] = None
     cells_img_size: Optional[int] = None
 
+class PreviewReq(BaseModel):
+    svs: str
+    png: str
+    max_size: Optional[int] = 4096
+
 @api.get("/health")
 def health():
     return {"status": "ok"}
@@ -39,7 +44,7 @@ def run(req: RunReq):
         "--session_id", str(req.session_id),
         "--session_dir", req.session_dir,
         "--config", req.config or "configs/defaults.yaml",
-    ]
+                    ]
     if req.user_id is not None:
         cmd += ["--user_id", str(req.user_id)]
 
@@ -48,7 +53,6 @@ def run(req: RunReq):
             return
         cmd.extend([f"--{name}", str(value)])
 
-    # Agregar solo flags soportados por el parser
     add_flag("bg-model", req.bg_model)
     add_flag("bg-threshold-path", req.bg_threshold_path)
     add_flag("bg-threshold", req.bg_threshold)
@@ -75,6 +79,44 @@ def run(req: RunReq):
         env={**os.environ, "TF_FORCE_GPU_ALLOW_GROWTH": "1"},
     )
     return {
+        "returncode": proc.returncode,
+        "stdout": proc.stdout[-4000:],
+        "stderr": proc.stderr[-4000:],
+        "cmd": " ".join(shlex.quote(c) for c in cmd),
+    }
+
+@api.post("/preview")
+def preview(req: PreviewReq):
+    max_size = req.max_size or 4096
+
+    cmd = [
+        "python", "scripts/svs_to_png.py",
+        "--svs", req.svs,
+        "--png", req.png,
+        "--max-size", str(max_size),
+    ]
+
+    proc = subprocess.run(
+        cmd,
+        cwd="/app",
+        capture_output=True,
+        text=True,
+        env={**os.environ, "TF_FORCE_GPU_ALLOW_GROWTH": "1"},
+    )
+
+    if proc.returncode != 0:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "svs_to_png failed",
+                "returncode": proc.returncode,
+                "stderr": proc.stderr[-4000:],
+                "cmd": " ".join(shlex.quote(c) for c in cmd),
+            },
+        )
+
+    return {
+        "status": "ok",
         "returncode": proc.returncode,
         "stdout": proc.stdout[-4000:],
         "stderr": proc.stderr[-4000:],

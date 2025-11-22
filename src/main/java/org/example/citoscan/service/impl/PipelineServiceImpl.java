@@ -34,12 +34,18 @@ public class PipelineServiceImpl implements PipelineService {
     @Value("${pipeline.root}")
     private String pipelineRoot;
 
+    @Value("${pipeline.exec:http}")
+    private String execMode;
+
+    @Value("${pipeline.url}")
+    private String pipelineUrl;
+
     private Path root() {
         return Paths.get(pipelineRoot).toAbsolutePath().normalize();
     }
 
     private final PipelineSessionRepository repo;
-    private final PipelineRunner pipelineRunner; // Bean separado que ejecuta el pipeline
+    private final PipelineRunner pipelineRunner;
 
     private static final long MAX_SIZE = 5L * 1024 * 1024 * 1024; // 5 GB
     private static final Set<String> ALLOWED = Set.of(".svs", ".png", ".jpg", ".jpeg");
@@ -98,44 +104,88 @@ public class PipelineServiceImpl implements PipelineService {
         return ((AppUserDetails) auth.getPrincipal()).getId();
     }
 
-    private void generateSvsPreview(Path projectRoot, Path sessionDir, Path svsPath) {
+    private void generateSvsPreview(Path pipeRoot, Path sessionDir, Path svsPath) {
+        Path previewDir = sessionDir.resolve("artifacts").resolve("preview");
+        Path previewPng = previewDir.resolve("slide.png");
+
         try {
-            Path previewDir = sessionDir.resolve("artifacts").resolve("preview");
             Files.createDirectories(previewDir);
-            Path previewPng = previewDir.resolve("slide.png");
 
-            Path script = projectRoot.resolve("pipeline").resolve("scripts").resolve("svs_to_png.py");
+            if ("http".equalsIgnoreCase(execMode)) {
+                java.net.URL url = new java.net.URL(pipelineUrl + "/preview");
+                java.net.HttpURLConnection con = (java.net.HttpURLConnection) url.openConnection();
+                con.setDoOutput(true);
+                con.setRequestMethod("POST");
+                con.setConnectTimeout(60_000);
+                con.setReadTimeout(60_000);
+                con.setRequestProperty("Content-Type", "application/json");
 
-            List<String> cmd = Arrays.asList(
-                    "python3",
-                    script.toString(),
-                    "--svs", svsPath.toString(),
-                    "--png", previewPng.toString(),
-                    "--max-size", "4096"
-            );
+                var payload = new java.util.HashMap<String, Object>();
+                payload.put("svs", svsPath.toString());
+                payload.put("png", previewPng.toString());
+                payload.put("max_size", 4096);
 
-            ProcessBuilder pb = new ProcessBuilder(cmd)
-                    .directory(projectRoot.resolve("pipeline").toFile())
-                    .redirectErrorStream(true);
+                byte[] body = new com.fasterxml.jackson.databind.ObjectMapper()
+                        .writeValueAsBytes(payload);
 
-            Process p = pb.start();
+                try (var os = con.getOutputStream()) {
+                    os.write(body);
+                }
 
-            try (BufferedReader br = new BufferedReader(
-                    new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = br.readLine()) != null) {
-                    System.out.println("[svs_to_png] " + line);
+                int code = con.getResponseCode();
+                String respBody = "";
+                try (var is = (code >= 200 && code < 300) ? con.getInputStream() : con.getErrorStream()) {
+                    if (is != null) {
+                        respBody = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                    }
+                }
+
+                System.out.println("[svs_to_png][HTTP] code=" + code);
+                if (!respBody.isBlank()) {
+                    System.out.println("[svs_to_png][HTTP] body=" + respBody);
+                }
+
+                if (code < 200 || code >= 300) {
+                    System.err.println("[svs_to_png][HTTP] falló con código " + code);
+                }
+
+            } else {
+                Path script = pipeRoot.resolve("scripts").resolve("svs_to_png.py");
+
+                java.util.List<String> cmd = java.util.Arrays.asList(
+                        "python3",
+                        script.toString(),
+                        "--svs", svsPath.toString(),
+                        "--png", previewPng.toString(),
+                        "--max-size", "4096"
+                );
+
+                ProcessBuilder pb = new ProcessBuilder(cmd)
+                        .directory(pipeRoot.toFile())
+                        .redirectErrorStream(true);
+
+                Process p = pb.start();
+
+                try (java.io.BufferedReader br = new java.io.BufferedReader(
+                        new java.io.InputStreamReader(p.getInputStream(), java.nio.charset.StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = br.readLine()) != null) {
+                        System.out.println("[svs_to_png][LOCAL] " + line);
+                    }
+                }
+
+                int code = p.waitFor();
+                if (code != 0) {
+                    System.err.println("svs_to_png terminó con código " + code + " (preview no generado)");
+                } else {
+                    System.out.println("Preview PNG generado en: " + previewPng);
                 }
             }
 
-            int code = p.waitFor();
-            if (code != 0) {
-                System.err.println("svs_to_png terminó con código " + code + " (preview no generado)");
-            } else {
-                System.out.println("Preview PNG generado en: " + previewPng);
-            }
-        } catch (IOException | InterruptedException e) {
+        } catch (IOException e) {
             System.err.println("Error generando preview PNG: " + e.getMessage());
+        } catch (InterruptedException e) {
+            System.err.println("Error generando preview PNG (interrupted): " + e.getMessage());
             Thread.currentThread().interrupt();
         }
     }
