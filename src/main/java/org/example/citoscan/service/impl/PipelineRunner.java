@@ -366,8 +366,21 @@ public class PipelineRunner {
             }
         }
 
-        out.top.sort((a, b) -> Double.compare((double) b.getOrDefault("conf", 0.0),
-                (double) a.getOrDefault("conf", 0.0)));
+        out.top.sort((a, b) -> {
+            String clsA = Objects.toString(a.get("cls"), "");
+            String clsB = Objects.toString(b.get("cls"), "");
+            int sevA = severityRank(clsA);
+            int sevB = severityRank(clsB);
+
+            if (sevA != sevB) {
+                return Integer.compare(sevB, sevA);
+            }
+
+            double confA = (double) a.getOrDefault("conf", 0.0);
+            double confB = (double) b.getOrDefault("conf", 0.0);
+            return Double.compare(confB, confA);
+        });
+
         if (out.top.size() > topN) {
             out.top = new ArrayList<>(out.top.subList(0, topN));
         }
@@ -378,10 +391,11 @@ public class PipelineRunner {
             int r = severityRank(cls);
             if (r > bestRank) bestRank = r;
         }
-
         out.diagnosis = mapSeverityToBucket(bestRank);
+
         return out;
     }
+
 
     private static String mapSeverityToBucket(int rank) {
         if (rank >= 7) return "Carcinoma";
