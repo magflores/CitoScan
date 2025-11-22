@@ -5,12 +5,9 @@ import org.example.citoscan.model.PipelineSession;
 import org.example.citoscan.service.PipelineService;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
-import org.springframework.http.MediaType;
-import org.springframework.http.MediaTypeFactory;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.multipart.MultipartFile;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -77,6 +74,23 @@ public class PipelineController {
 
         return ResponseEntity.ok(out);
     }
+
+    @GetMapping(value = "/sessions/{id}/preview", produces = MediaType.IMAGE_PNG_VALUE)
+    public ResponseEntity<Resource> getPreview(@PathVariable Long id) {
+        PipelineSession s = pipelineService.get(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "session not found"));
+
+        Path p = Paths.get(s.getStoragePath(), "artifacts", "preview", "slide.png");
+        if (!Files.exists(p)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "preview not found");
+        }
+
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noCache())
+                .contentType(MediaType.IMAGE_PNG)
+                .body(new FileSystemResource(p));
+    }
+
 
     @GetMapping("/sessions/{id}/files/**")
     public ResponseEntity<Resource> files(@PathVariable Long id, HttpServletRequest request) throws IOException {

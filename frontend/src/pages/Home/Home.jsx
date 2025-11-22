@@ -8,6 +8,7 @@ import {
     createPipelineSession,
     getPipelineSession,
     getPipelineResults,
+    fetchPipelinePreview,
 } from "../../features/auth/api";
 
 const LOCALSTORAGE_KEY = "cs_hide_welcome_v1";
@@ -132,6 +133,39 @@ export default function Home() {
         setDragOver(false);
     }
 
+    // Cuando el pipeline termina, descargar la preview generada en el backend con auth
+    useEffect(() => {
+        if (status !== "DONE" || sessionId == null) return;
+
+        let cancelled = false;
+        let objectUrl = null;
+        setLoadingPreview(true);
+
+        (async () => {
+            try {
+                const blob = await fetchPipelinePreview(sessionId);
+                if (cancelled) return;
+                objectUrl = URL.createObjectURL(blob);
+                setPreviewUrl(objectUrl);
+            } catch (e) {
+                if (cancelled) return;
+                const message = e?.message || "No se pudo cargar la vista previa generada.";
+                setError(message);
+                setPreviewUrl(null);
+            } finally {
+                if (!cancelled) setLoadingPreview(false);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+            if (objectUrl) {
+                URL.revokeObjectURL(objectUrl);
+            }
+        };
+    }, [status, sessionId]);
+
+
     const isBusy = status === "QUEUED" || status === "RUNNING" || uploading;
     const canAnalyze = useMemo(
         () => !!file && !error && !loadingPreview && !isBusy,
@@ -175,11 +209,18 @@ export default function Home() {
             setSessionId(null);
             setStatus(null);
             setResults(null);
+            setPreviewUrl(null);
+            setLoadingPreview(false);
 
             const session = await createPipelineSession(file);
             const id = session.id || session.sessionId || null;
             setSessionId(id);
             setStatus(session.status || "QUEUED");
+
+            if (session.previewPath) {
+                setPreviewUrl(`http://localhost:8080/${session.previewPath}`);
+            }
+
             if (id != null) {
                 await startPolling(id);
             } else {
@@ -191,6 +232,7 @@ export default function Home() {
             setUploading(false);
         }
     }
+
 
     function handleBack() {
         clearFile();
@@ -209,59 +251,138 @@ export default function Home() {
         </div>
     );
 
+    // const resultsUI =
+    //     status === "DONE" &&
+    //     results && (
+    //         <div className="home__resultsOnly">
+    //             <h3>Resultados</h3>
+    //             <div className="home__grid">
+    //                 <div className="home__card">
+    //                     <div className="label">Diagnóstico posible</div>
+    //                     <div className="value">{results.possibleDiagnosis || "—"}</div>
+    //                 </div>
+    //                 <div className="home__card">
+    //                     <div className="label">Parches totales</div>
+    //                     <div className="value">{results.tilesTotal ?? "—"}</div>
+    //                 </div>
+    //                 <div className="home__card">
+    //                     <div className="label">Apto</div>
+    //                     <div className="value">{results.aptoTotal ?? "—"}</div>
+    //                 </div>
+    //                 <div className="home__card">
+    //                     <div className="label">No Apto (Descartado)</div>
+    //                     <div className="value">{results.noAptoTotal ?? "—"}</div>
+    //                 </div>
+    //                 <div className="home__card">
+    //                     <div className="label">No Fondo</div>
+    //                     <div className="value">{results.notBackgroundTotal ?? "—"}</div>
+    //                 </div>
+    //                 <div className="home__card">
+    //                     <div className="label">Fondo (Descartado)</div>
+    //                     <div className="value">{results.backgroundTotal ?? "—"}</div>
+    //                 </div>
+    //             </div>
+
+    //             {Array.isArray(results.topPatches) && results.topPatches.length > 0 && (
+    //                 <div className="home__top">
+    //                     <h4>Top patches</h4>
+    //                     <ul className="home__topList">
+    //                         {results.topPatches.slice(0, 10).map((t, i) => (
+    //                             <li key={i}>
+    //                                 <code>{t.rel_path || "?"}</code> — {t.cls || "?"} (
+    //                                 {(t.conf ?? 0).toFixed(3)})
+    //                             </li>
+    //                         ))}
+    //                     </ul>
+    //                 </div>
+    //             )}
+
+    //             <div className="home__actions">
+    //                 <Button variant="outline" tone="blue" onClick={handleBack}>
+    //                     Volver
+    //                 </Button>
+    //             </div>
+    //         </div>
+    //     );
+
+    const hasResults = status === "DONE" && results;
+
     const resultsUI =
-        status === "DONE" &&
-        results && (
-            <div className="home__resultsOnly">
-                <h3>Resultados</h3>
-                <div className="home__grid">
-                    <div className="home__card">
-                        <div className="label">Diagnóstico posible</div>
-                        <div className="value">{results.possibleDiagnosis || "—"}</div>
+        hasResults && (
+            <section className="home__results">
+                <div className="home__resultsHeader">
+                    <div className="home__resultsTitleWrap">
+                        <h2 className="home__resultsTitle">Nueva imagen</h2>
+                        <button
+                            type="button"
+                            className="home__resultsTitleEdit"
+                            aria-label="Editar nombre de la imagen"
+                        >
+                            ✏️
+                        </button>
                     </div>
-                    <div className="home__card">
-                        <div className="label">Parches totales</div>
-                        <div className="value">{results.tilesTotal ?? "—"}</div>
+
+                    <select className="home__resultsSelect" defaultValue="5">
+                        <option value="5">5 miniparches más confiables</option>
+                        <option value="10">10 miniparches más confiables</option>
+                    </select>
+                </div>
+
+                <div className="home__resultsGrid">
+                    {/* Imagen grande con la preview del backend */}
+                    <div className="home__resultsImageFrame">
+                        {previewUrl ? (
+                            <div className="home__resultsImageInner">
+                                <img
+                                    src={previewUrl}
+                                    alt="Vista previa del análisis"
+                                />
+                                {/* Más adelante acá van los puntos de miniparches */}
+                            </div>
+                        ) : (
+                            <div className="home__resultsPlaceholder">
+                                Vista previa no disponible.
+                            </div>
+                        )}
                     </div>
-                    <div className="home__card">
-                        <div className="label">Apto</div>
-                        <div className="value">{results.aptoTotal ?? "—"}</div>
-                    </div>
-                    <div className="home__card">
-                        <div className="label">No Apto (Descartado)</div>
-                        <div className="value">{results.noAptoTotal ?? "—"}</div>
-                    </div>
-                    <div className="home__card">
-                        <div className="label">No Fondo</div>
-                        <div className="value">{results.notBackgroundTotal ?? "—"}</div>
-                    </div>
-                    <div className="home__card">
-                        <div className="label">Fondo (Descartado)</div>
-                        <div className="value">{results.backgroundTotal ?? "—"}</div>
+
+                    {/* Panel derecho con mensaje “Seleccione un miniparche” */}
+                    <div className="home__resultsPatchPanel">
+                        <span>Seleccione un miniparche</span>
                     </div>
                 </div>
 
-                {Array.isArray(results.topPatches) && results.topPatches.length > 0 && (
-                    <div className="home__top">
-                        <h4>Top patches</h4>
-                        <ul className="home__topList">
-                            {results.topPatches.slice(0, 10).map((t, i) => (
-                                <li key={i}>
-                                    <code>{t.rel_path || "?"}</code> — {t.cls || "?"} (
-                                    {(t.conf ?? 0).toFixed(3)})
-                                </li>
-                            ))}
-                        </ul>
+                <div className="home__resultsFooter">
+                    <div className="home__resultsDiagnosis">
+                        <span className="home__resultsDiagnosisLabel">
+                            Diagnóstico posible:&nbsp;
+                        </span>
+                        <span>
+                            {results.possibleDiagnosis || "—"}
+                        </span>
                     </div>
-                )}
 
-                <div className="home__actions">
-                    <Button variant="outline" tone="blue" onClick={handleBack}>
-                        Volver
+                    <div className="home__resultsLinks">
+                        <button type="button" className="text-link">
+                            Ver estadísticas del análisis
+                        </button>
+                        <button type="button" className="text-link">
+                            Descargar resultados del análisis
+                        </button>
+                        <button type="button" className="text-link">
+                            Vista detallada de los miniparches
+                        </button>
+                    </div>
+                </div>
+
+                <div className="home__resultsActions">
+                    <Button variant="muted" tone="blue" onClick={handleBack}>
+                        Realizar nuevo análisis
                     </Button>
                 </div>
-            </div>
+            </section>
         );
+
 
     // Render por estados:
     return (

@@ -254,3 +254,24 @@ export function getPipelineResults(id: number) {
 export function sessionFileUrl(sessionId: number, relativePath: string) {
     return joinUrl(API, `/pipeline/sessions/${sessionId}/files/${relativePath}`);
 }
+
+export async function fetchPipelinePreview(id: number): Promise<Blob> {
+    const res = await fetch(joinUrl(API, `/pipeline/sessions/${id}/preview`), {
+        method: "GET",
+        headers: {
+            ...authHeader(),
+        },
+        credentials: "include",
+    });
+
+    if (!res.ok) {
+        let msg = "";
+        try {
+            msg = await res.text();
+        } catch {
+        }
+        throw {message: msg || "No se pudo obtener la vista previa generada."};
+    }
+
+    return await res.blob();
+}

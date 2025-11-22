@@ -106,3 +106,162 @@
 @media (max-width: 720px) {
     .dropzone__canvas { --dz-h: 300px; }
 }
+
+.preview-box {
+    text-align: center;
+    margin-top: 24px;
+    background: white;
+    padding: 16px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.preview-box img {
+    max-width: 100%;
+    max-height: 400px;
+    border-radius: 8px;
+    object-fit: contain;
+}
+
+/* ===== Resultados post-análisis ===== */
+
+.home__results {
+    margin-top: 32px;
+}
+
+.home__resultsHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.home__resultsTitleWrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.home__resultsTitle {
+    font-size: 24px;
+    font-weight: 500;
+    margin: 0;
+}
+
+.home__resultsTitleEdit {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px;
+    border-radius: 999px;
+    line-height: 1;
+}
+
+.home__resultsSelect {
+    min-width: 220px;
+    border-radius: 999px;
+    border: 1px solid #e5e7eb;
+    padding: 8px 14px;
+    font-family: inherit;
+    font-size: 14px;
+    background: #fff;
+}
+
+.home__resultsGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr);
+    gap: 24px;
+    align-items: stretch;
+}
+
+.home__resultsImageFrame {
+    border: 1px dashed #e5e7eb;
+    border-radius: 16px;
+    padding: 12px;
+    background: #faf5ff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 320px;
+}
+
+.home__resultsImageInner {
+    width: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.home__resultsImageInner img {
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+}
+
+.home__resultsPlaceholder {
+    font-size: 14px;
+    color: #9ca3af;
+    text-align: center;
+}
+
+.home__resultsPatchPanel {
+    border: 1px dashed #e5e7eb;
+    border-radius: 16px;
+    padding: 24px;
+    background: #f9fafb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-height: 320px;
+    font-size: 14px;
+    color: #9ca3af;
+}
+
+.home__resultsFooter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.home__resultsDiagnosis {
+    font-size: 15px;
+}
+
+.home__resultsDiagnosisLabel {
+    font-weight: 500;
+}
+
+.home__resultsLinks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 20px;
+    font-size: 14px;
+}
+
+.home__resultsActions {
+    margin-top: 24px;
+    text-align: center;
+}
+
+/* Responsive: apilar columnas en pantallas chicas */
+@media (max-width: 900px) {
+    .home__resultsGrid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .home__resultsHeader {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .home__resultsActions {
+        text-align: left;
+    }
+}
+

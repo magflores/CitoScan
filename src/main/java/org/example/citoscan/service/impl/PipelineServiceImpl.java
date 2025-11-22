@@ -11,6 +11,16 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.List;
+
 
 import java.io.IOException;
 import java.nio.file.*;
@@ -88,6 +98,48 @@ public class PipelineServiceImpl implements PipelineService {
         return ((AppUserDetails) auth.getPrincipal()).getId();
     }
 
+    private void generateSvsPreview(Path projectRoot, Path sessionDir, Path svsPath) {
+        try {
+            Path previewDir = sessionDir.resolve("artifacts").resolve("preview");
+            Files.createDirectories(previewDir);
+            Path previewPng = previewDir.resolve("slide.png");
+
+            Path script = projectRoot.resolve("pipeline").resolve("scripts").resolve("svs_to_png.py");
+
+            List<String> cmd = Arrays.asList(
+                    "python3",
+                    script.toString(),
+                    "--svs", svsPath.toString(),
+                    "--png", previewPng.toString(),
+                    "--max-size", "4096"
+            );
+
+            ProcessBuilder pb = new ProcessBuilder(cmd)
+                    .directory(projectRoot.resolve("pipeline").toFile())
+                    .redirectErrorStream(true);
+
+            Process p = pb.start();
+
+            try (BufferedReader br = new BufferedReader(
+                    new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    System.out.println("[svs_to_png] " + line);
+                }
+            }
+
+            int code = p.waitFor();
+            if (code != 0) {
+                System.err.println("svs_to_png terminó con código " + code + " (preview no generado)");
+            } else {
+                System.out.println("Preview PNG generado en: " + previewPng);
+            }
+        } catch (IOException | InterruptedException e) {
+            System.err.println("Error generando preview PNG: " + e.getMessage());
+            Thread.currentThread().interrupt();
+        }
+    }
+
     @Override
     @Transactional
     public PipelineSession createAndRun(MultipartFile svsFile, Map<String, String> opts) throws IOException {
@@ -134,6 +186,8 @@ public class PipelineServiceImpl implements PipelineService {
         String cleanName = base + ext;
         Path svsPath     = ensureUnique(inputDir, cleanName);
         svsFile.transferTo(svsPath.toFile());
+
+        generateSvsPreview(root(), sessionDir, svsPath);
 
         Path tilesPath = workspaceDir.resolve("01_tiles");
         Path cellsRawPredsDir = workspaceDir.resolve("05_cells").resolve("apto").resolve("raw_preds");
