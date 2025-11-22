@@ -3,7 +3,7 @@ import "./Register.css";
 import Button from "../../../components/Button/Button.jsx";
 import FloatInput from "../../../components/FloatInput/FloatInput.jsx";
 import logo from "../../../assets/citoIcon.svg";
-import { register as registerApi, login as loginApi } from "../../../features/auth/api";
+import {register as registerApi, login as loginApi, setToken} from "../../../features/auth/api";
 import {useLocation, useNavigate} from "react-router-dom";
 
 const nameRegex = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ' -]+$/;
@@ -72,7 +72,7 @@ export default function Register() {
             });
 
             if (res?.token) {
-                localStorage.setItem("auth_token", res.token);
+                setToken(res.token);
                 navigate(redirectTo, { replace: true });
             }else {
                 setError("Cuenta creada, pero no se produjo un error iniciando sesión.");

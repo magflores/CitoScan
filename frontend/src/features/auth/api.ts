@@ -54,6 +54,13 @@ async function handle<T>(res: Response): Promise<T> {
     const body = parseMaybeJson(ct, raw);
 
     if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+            clearToken();
+            if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+                window.location.replace("/login");
+            }
+        }
+
         const err = normalizeError(body);
         (err as any).status = res.status;
         throw err;
@@ -116,6 +123,22 @@ export function getToken(): string | null {
         return localStorage.getItem(TOKEN_KEY);
     } catch {
         return null;
+    }
+}
+
+export function setToken(token: string) {
+    try {
+        localStorage.setItem(TOKEN_KEY, token);
+    } catch {
+
+    }
+}
+
+export function clearToken() {
+    try {
+        localStorage.removeItem(TOKEN_KEY);
+    } catch {
+
     }
 }
 

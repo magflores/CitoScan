@@ -1,10 +1,19 @@
 import React from "react";
-import { Link, NavLink } from "react-router-dom";
+import {Link, NavLink, useNavigate} from "react-router-dom";
 import Button from "../Button/Button.jsx";
 import "./Header.css";
 import logo from "../../assets/citoIcon.svg";
+import {clearToken} from "../../features/auth/api.js";
 
 export default function Header({ mode = "public" }) {
+    const navigate = useNavigate();
+
+    function onLogout() {
+        clearToken();
+        navigate("/login", { replace: true });
+    }
+
+
     return (
         <header className="hdr">
             <Link to="/" className="hdr__brand" aria-label="Inicio">
@@ -29,6 +38,7 @@ export default function Header({ mode = "public" }) {
                     <Link to="/profile" className="hdr__avatar" aria-label="Perfil">
                         <span className="hdr__avatarCircle">👤</span>
                     </Link>
+                    <Button onClick={onLogout}>Cerrar sesión</Button>
                 </nav>
             )}
         </header>

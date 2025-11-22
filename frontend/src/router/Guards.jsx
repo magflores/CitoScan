@@ -1,7 +1,9 @@
 import React from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 
-export const isAuthed = () => !!localStorage.getItem("auth_token");
+import { getToken } from "../features/auth/api";
+
+export const isAuthed = () => !!getToken();
 
 export function RequireAuth() {
     const loc = useLocation();

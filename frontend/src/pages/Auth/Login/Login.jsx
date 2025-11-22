@@ -3,7 +3,7 @@ import "./Login.css";
 import Button from "../../../components/Button/Button.jsx";
 import FloatInput from "../../../components/FloatInput/FloatInput.jsx";
 import logo from "../../../assets/citoIcon.svg";
-import { login } from "../../../features/auth/api";
+import {login, setToken} from "../../../features/auth/api";
 import { useNavigate, Link } from "react-router-dom";
 
 export default function Login() {
@@ -25,7 +25,7 @@ export default function Login() {
             setLoading(true);
             const res = await login({ email: email.trim(), password });
             if (res?.token) {
-                localStorage.setItem("auth_token", res.token);
+                setToken(res.token);
             }
             navigate("/home", { replace: true });
         } catch (err) {
