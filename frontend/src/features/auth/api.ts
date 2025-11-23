@@ -311,6 +311,34 @@ export function sessionFileUrl(sessionId: number, relativePath: string) {
     return joinUrl(API, `/pipeline/sessions/${sessionId}/files/${relativePath}`);
 }
 
+/** Obtiene un miniparche como Blob */
+export async function fetchPipelinePatch(sessionId: number, relPath: string): Promise<Blob> {
+    if (!sessionId || !relPath) {
+        throw { message: "Parámetros inválidos para obtener miniparche." };
+    }
+
+    const url = sessionFileUrl(sessionId, relPath);
+
+    const res = await fetch(url, {
+        method: "GET",
+        credentials: "include",
+        headers: {
+            ...authHeader(),
+        },
+    });
+
+    if (!res.ok) {
+        let msg = "";
+        try {
+            msg = await res.text();
+        } catch {}
+        throw { message: msg || "No se pudo obtener el miniparche." };
+    }
+
+    return await res.blob();
+}
+
+
 export async function fetchPipelinePreview(id: number): Promise<Blob> {
     const res = await fetch(joinUrl(API, `/pipeline/sessions/${id}/preview`), {
         method: "GET",

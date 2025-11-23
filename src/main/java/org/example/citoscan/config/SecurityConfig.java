@@ -47,6 +47,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/users").permitAll()
+
+                        .requestMatchers(HttpMethod.GET, "/api/pipeline/sessions/*/preview").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/pipeline/sessions/*/results").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/pipeline/sessions/*/files/**").authenticated()
+
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
@@ -66,6 +71,7 @@ public class SecurityConfig {
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cfg.setAllowedHeaders(List.of("*"));
         cfg.setAllowCredentials(true);
+        cfg.addExposedHeader("Content-Type");
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", cfg);
         return source;

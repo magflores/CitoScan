@@ -12,6 +12,7 @@ import {
     getPipelineResults,
     fetchPipelinePreview,
 } from "../../features/auth/api";
+import MiniPatch from "../../components/MiniPatch/MiniPatch.jsx";
 
 const LOCALSTORAGE_KEY = "cs_hide_welcome_v1";
 const ACCEPT_EXT = [".svs", ".png", ".jpg", ".jpeg"];
@@ -30,7 +31,7 @@ export default function Home() {
 
     const [uploading, setUploading] = useState(false);
     const [sessionId, setSessionId] = useState(null);
-    const [status, setStatus] = useState(null); // "QUEUED" | "RUNNING" | "DONE" | "ERROR" | null
+    const [status, setStatus] = useState(null);
     const [results, setResults] = useState(null);
     const [topCount, setTopCount] = useState(5);
     const [isImageUpload, setIsImageUpload] = useState(false);
@@ -42,6 +43,7 @@ export default function Home() {
     const [dragOver, setDragOver] = useState(false);
     const pollRef = useRef(null);
 
+    /* ---------------------- Welcome modal ---------------------- */
     useEffect(() => {
         const persisted = localStorage.getItem(LOCALSTORAGE_KEY) === "true";
         setHideWelcome(persisted);
@@ -57,18 +59,7 @@ export default function Home() {
         inputRef.current?.click();
     }
 
-    function isImageFile(f) {
-        const ext = "." + f.name.split(".").pop().toLowerCase();
-        return IMG_EXT.includes(ext);
-    }
-
-    function stopPolling() {
-        if (pollRef.current) {
-            clearInterval(pollRef.current);
-            pollRef.current = null;
-        }
-    }
-
+    /* ---------------------- File validation ---------------------- */
     function clearFile() {
         setError("");
         setFile(null);
@@ -95,15 +86,13 @@ export default function Home() {
             return;
         }
         if (f.size > MAX_SIZE) {
-            setError("El archivo supera el tamaño máximo de 5GB.");
+            setError("El archivo supera el máximo permitido de 5GB.");
             clearFile();
             return;
         }
 
-        if (previewUrl) {
-            URL.revokeObjectURL(previewUrl);
-            setPreviewUrl(null);
-        }
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+
         setFile(f);
         setError("");
         setSessionId(null);
@@ -116,17 +105,15 @@ export default function Home() {
         if (isImg) {
             const url = URL.createObjectURL(f);
             setPreviewUrl(url);
-            setLoadingPreview(false);
             return;
         }
 
         setLoadingPreview(true);
         try {
             const session = await createPipelineSessionPreview(f);
-            const id = session.id || session.sessionId || null;
-            if (id == null) {
-                throw new Error("No se obtuvo el ID de la sesión de preview.");
-            }
+            const id = session.id || session.sessionId;
+            if (!id) throw new Error("No se obtuvo ID de la sesión de preview.");
+
             setSessionId(id);
             setStatus(session.status || "UPLOADED");
 
@@ -134,34 +121,18 @@ export default function Home() {
             const url = URL.createObjectURL(blob);
             setPreviewUrl(url);
         } catch (e) {
-            setError(e.message || "No se pudo generar la vista previa del archivo .svs.");
-            setPreviewUrl(null);
+            setError(e.message || "No se pudo generar la vista previa.");
         } finally {
             setLoadingPreview(false);
         }
     }
 
-    useEffect(() => {
-        return () => {
-            if (previewUrl) URL.revokeObjectURL(previewUrl);
-            stopPolling();
-        };
-    }, [previewUrl]);
-
-    function onInputChange(e) {
-        validateAndSet(e.target.files?.[0]);
-    }
-    function onDrop(e) {
-        e.preventDefault();
-        setDragOver(false);
-        validateAndSet(e.dataTransfer.files?.[0]);
-    }
-    function onDragOver(e) {
-        e.preventDefault();
-        setDragOver(true);
-    }
-    function onDragLeave() {
-        setDragOver(false);
+    /* ---------------------- Polling ---------------------- */
+    function stopPolling() {
+        if (pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+        }
     }
 
     useEffect(() => {
@@ -283,7 +254,7 @@ export default function Home() {
     async function refreshSession(id) {
         try {
             const s = await getPipelineSession(id);
-            setStatus(s.status || null);
+            setStatus(s.status);
 
             if (s.status === "DONE") {
                 stopPolling();
@@ -297,8 +268,8 @@ export default function Home() {
             } else if (s.status === "ERROR") {
                 stopPolling();
             }
-        } catch (e) {
-            setError(e.message || "No se pudo actualizar el estado.");
+        } catch (err) {
+            setError(err.message || "No se pudo actualizar el estado.");
             stopPolling();
         }
     }
@@ -310,18 +281,17 @@ export default function Home() {
     }
 
     async function onAnalyze() {
-        if (!canAnalyze) return;
+        if (!file || error || loadingPreview || uploading) return;
 
         try {
             setUploading(true);
-            setError("");
             setStatus(null);
             setResults(null);
 
             let id = sessionId;
             let session;
 
-            if (id != null && !isImageUpload) {
+            if (id && !isImageUpload) {
                 session = await runPipelineSession(id);
             } else {
                 session = await createPipelineSession(file);
@@ -331,22 +301,30 @@ export default function Home() {
             setSessionId(id);
             setStatus(session.status || "QUEUED");
 
-            if (id != null) {
-                await startPolling(id);
-            } else {
-                setError("No se obtuvo el ID de la sesión.");
-            }
+            if (id) startPolling(id);
         } catch (e) {
-            setError(e.message || "Error al analizar el archivo.");
+            setError(e.message || "Error al iniciar análisis.");
         } finally {
             setUploading(false);
         }
     }
 
+    /* ---------------------- Markers ---------------------- */
+    const markers = useMemo(() => {
+        if (!results?.topPatches) return [];
+        return results.topPatches.slice(0, topCount).map((p, i) => {
+            const nx = p.normX ?? p.normx;
+            const ny = p.normY ?? p.normy;
+            if (nx == null || ny == null) return null;
+            return { id: i + 1, normX: nx, normY: ny };
+        }).filter(Boolean);
+    }, [results, topCount]);
 
-
-    function handleBack() {
-        clearFile();
+    /* ---------------------- Drag/Drop ---------------------- */
+    function onDrop(e) {
+        e.preventDefault();
+        setDragOver(false);
+        validateAndSet(e.dataTransfer.files?.[0]);
     }
 
     const processingUI = (
@@ -446,13 +424,7 @@ export default function Home() {
                 <div className="home__resultsHeader">
                     <div className="home__resultsTitleWrap">
                         <h2 className="home__resultsTitle">Nueva imagen</h2>
-                        <button
-                            type="button"
-                            className="home__resultsTitleEdit"
-                            aria-label="Editar nombre de la imagen"
-                        >
-                            ✏️
-                        </button>
+                        <button type="button" className="home__resultsTitleEdit">✏️</button>
                     </div>
 
                     <select
@@ -466,14 +438,10 @@ export default function Home() {
                 </div>
 
                 <div className="home__resultsGrid">
-                    {/* Imagen grande con la preview del backend */}
                     <div className="home__resultsImageFrame">
                         {previewUrl ? (
                             <div className="home__resultsImageInner">
-                                <img
-                                    src={previewUrl}
-                                    alt="Vista previa del análisis"
-                                />
+                                <img src={previewUrl} alt="preview" />
 
                                 {markers.map((m) => (
                                     <div
@@ -495,149 +463,105 @@ export default function Home() {
                         )}
                     </div>
 
-                    {/* Panel derecho con mensaje “Seleccione un miniparche” */}
+                    {/* Panel derecho: miniparches */}
                     <div className="home__resultsPatchPanel">
-                        <span>Seleccione un miniparche</span>
+                        <h3>Miniparches representativos</h3>
+
+                        {results?.topPatches?.slice(0, topCount).map((p, i) => (
+                            <div key={i} className="home__patchItem">
+                                <MiniPatch
+                                    sessionId={sessionId}
+                                    relPath={p.rel_path}
+                                    alt={`patch ${i + 1}`}
+                                />
+                                <div className="home__patchInfo">
+                                    <div>{p.cls || "—"}</div>
+                                    <div>{(p.conf ?? 0).toFixed(3)}</div>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
 
                 <div className="home__resultsFooter">
                     <div className="home__resultsDiagnosis">
                         <span className="home__resultsDiagnosisLabel">
-                            Diagnóstico posible:&nbsp;
+                            Diagnóstico posible:
                         </span>
-                        <span>
-                            {results.possibleDiagnosis || "—"}
-                        </span>
+                        <span>{results.possibleDiagnosis || "—"}</span>
                     </div>
 
                     <div className="home__resultsLinks">
-                        <button type="button" className="text-link">
-                            Ver estadísticas del análisis
-                        </button>
-                        <button type="button" className="text-link">
-                            Descargar resultados del análisis
-                        </button>
-                        <button type="button" className="text-link">
-                            Vista detallada de los miniparches
-                        </button>
+                        <button className="text-link">Ver estadísticas</button>
+                        <button className="text-link">Descargar resultados</button>
+                        <button className="text-link">Vista detallada</button>
                     </div>
                 </div>
 
                 <div className="home__resultsActions">
-                    <Button variant="muted" tone="blue" onClick={handleBack}>
+                    <Button variant="muted" tone="blue" onClick={() => clearFile()}>
                         Realizar nuevo análisis
                     </Button>
                 </div>
             </section>
         );
 
-
-    // Render por estados:
+    /* ---------------------- Main render ---------------------- */
     return (
         <>
             <Header mode="auth" />
+
             <div className="home">
-                {/* Solo procesamiento */}
-                {isBusy && processingUI}
+                {uploading || status === "QUEUED" || status === "RUNNING"
+                    ? (
+                        <div className="home__processing">
+                            <div className="home__status busy">
+                                <img src={loaderGif} className="home__loader" />
+                            </div>
+                        </div>
+                    )
+                    : hasResults
+                        ? resultsUI
+                        : (
+                            <>
+                                <p className="home__lead">Empezá tu análisis</p>
+                                {error && <div className="dropzone__error">{error}</div>}
 
-                {/* Solo resultados */}
-                {!isBusy && resultsUI}
-
-                {/* Pantalla normal cuando no procesa ni hay resultados */}
-                {!isBusy && !results && (
-                    <>
-                        <p className="home__lead">Empezá tu análisis</p>
-                        {error && <div className="dropzone__error">{error}</div>}
-
-                        <div
-                            className={`dropzone ${dragOver ? "is-over" : ""}`}
-                            onDragOver={onDragOver}
-                            onDragLeave={onDragLeave}
-                            onDrop={onDrop}
-                            role="region"
-                            aria-label="Zona para soltar archivo"
-                        >
-                            <div className="dropzone__canvas">
-                                {previewUrl ? (
-                                    <>
-                                        <img
-                                            src={previewUrl}
-                                            alt={file?.name || "Vista previa"}
-                                            className="dropzone__img"
-                                            onLoad={() => setLoadingPreview(false)}
-                                            onError={() => {
-                                                setLoadingPreview(false);
-                                                setError("No se pudo cargar la vista previa.");
-                                            }}
-                                        />
-                                        {loadingPreview && (
-                                            <div className="dropzone__previewLoader">
-                                                <img src={loaderGif} alt="" className="home__loader" />
-                                                <span>Cargando vista previa...</span>
+                                <div
+                                    className={`dropzone ${dragOver ? "is-over" : ""}`}
+                                    onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                                    onDragLeave={() => setDragOver(false)}
+                                    onDrop={onDrop}
+                                >
+                                    <div className="dropzone__canvas">
+                                        {previewUrl ? (
+                                            <img
+                                                src={previewUrl}
+                                                className="dropzone__img"
+                                            />
+                                        ) : (
+                                            <div className="dropzone__empty">
+                                                <div className="dropzone__icon">⤴</div>
+                                                <div className="dropzone__text">
+                                                    Arrastrá una imagen o{" "}
+                                                    <button
+                                                        className="text-link"
+                                                        onClick={browseFile}
+                                                    >
+                                                        subí un archivo
+                                                    </button>
+                                                </div>
                                             </div>
                                         )}
-                                    </>
-                                ) : file ? (
-                                    loadingPreview ? (
-                                        <div className="dropzone__previewLoader">
-                                            <img src={loaderGif} alt="" className="home__loader" />
-                                            <span>Generando vista previa...</span>
-                                        </div>
-                                    ) : (
-                                        <div className="dropzone__empty">
-                                            <div className="dropzone__icon" aria-hidden>
-                                                ⤴
-                                            </div>
-                                            <div className="dropzone__text">
-                                                Vista previa no disponible. Arrastrá otra imagen o{" "}
-                                                <button
-                                                    type="button"
-                                                    className="dropzone__link"
-                                                    onClick={browseFile}
-                                                    disabled={isBusy}
-                                                >
-                                                    subí un archivo
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )
-                                ) : (
-                                    <div className="dropzone__empty">
-                                        <div className="dropzone__icon" aria-hidden>
-                                            ⤴
-                                        </div>
-                                        <div className="dropzone__text">
-                                            Arrastrá una imagen o{" "}
-                                            <button
-                                                type="button"
-                                                className="text-link"
-                                                onClick={browseFile}
-                                                disabled={isBusy}
-                                            >
-                                                subí un archivo
-                                            </button>
-                                        </div>
                                     </div>
-                                )}
-                            </div>
 
-
-                            <input
-                                ref={inputRef}
-                                type="file"
-                                accept={ACCEPT_EXT.join(",")}
-                                className="dropzone__input"
-                                onChange={onInputChange}
-                                disabled={isBusy}
-                            />
-                        </div>
-
-                        <div className="home__below">
-                            {!file ? (
-                                <div className="home__metaRow">
-                                    <span>Formatos admitidos: .svs, .png, .jpg</span>
-                                    <span>Tamaño máximo: 5GB</span>
+                                    <input
+                                        ref={inputRef}
+                                        type="file"
+                                        className="dropzone__input"
+                                        accept={ACCEPT_EXT.join(",")}
+                                        onChange={(e) => validateAndSet(e.target.files?.[0])}
+                                    />
                                 </div>
                             ) : (
                                 <div className="home__fileRow">
@@ -647,61 +571,42 @@ export default function Home() {
                                     >
                                         {file.name}
                                     </div>
-                                    <button
-                                        type="button"
-                                        className="home__remove"
-                                        onClick={clearFile}
-                                        title="Quitar archivo"
-                                        aria-label="Quitar archivo"
-                                        disabled={isBusy}
+                                )}
+
+                                <div className="home__actions">
+                                    <Button
+                                        variant="muted"
+                                        tone="blue"
+                                        disabled={!file || !!error}
+                                        onClick={onAnalyze}
                                     >
-                                        <svg viewBox="0 0 24 24" className="home__trash" aria-hidden>
-                                            <path
-                                                d="M9 3h6a1 1 0 0 1 1 1v1h4v2H4V5h4V4a1 1 0 0 1 1-1Zm1 2h4V5h-4Zm-3 6h2v8H7v-8Zm10 0v8h-2v-8h2ZM11 11h2v8h-2v-8Z"
-                                                fill="currentColor"
-                                            />
-                                        </svg>
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="home__actions">
-                            <Button
-                                variant="muted"
-                                tone="blue"
-                                disabled={!canAnalyze}
-                                onClick={onAnalyze}
-                                className="home__analyze"
-                            >
-                                Analizar
-                            </Button>
-                        </div>
-
-                        <Modal open={showWelcome} onClose={closeWelcome}>
-                            <div className="home__welcome">
-                                <p>
-                                    Bienvenido a CitoScan, tu sitio para realizar análisis de imágenes
-                                    de Papanicolau.<br />Si querés saber más sobre nosotros y cómo
-                                    funciona la página, <a href="/info">hacé click aquí</a>.
-                                </p>
-                                <label className="home__welcome-check">
-                                    <input
-                                        type="checkbox"
-                                        checked={hideWelcome}
-                                        onChange={(e) => setHideWelcome(e.target.checked)}
-                                    />
-                                    <span>No volver a mostrar este mensaje</span>
-                                </label>
-                                <div className="home__welcome-actions">
-                                    <Button variant="outline" tone="pink" onClick={closeWelcome}>
-                                        Cerrar
+                                        Analizar
                                     </Button>
                                 </div>
-                            </div>
-                        </Modal>
-                    </>
-                )}
+
+                                <Modal open={showWelcome} onClose={closeWelcome}>
+                                    <div className="home__welcome">
+                                        <p>
+                                            Bienvenido a CitoScan.<br />
+                                            <a href="/info">Más información</a>.
+                                        </p>
+                                        <label className="home__welcome-check">
+                                            <input
+                                                type="checkbox"
+                                                checked={hideWelcome}
+                                                onChange={(e) => setHideWelcome(e.target.checked)}
+                                            />
+                                            <span>No volver a mostrar</span>
+                                        </label>
+                                        <div className="home__welcome-actions">
+                                            <Button variant="outline" tone="pink" onClick={closeWelcome}>
+                                                Cerrar
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </Modal>
+                            </>
+                        )}
             </div>
         </>
     );

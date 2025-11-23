@@ -112,10 +112,13 @@ public class PipelineController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "session not found"));
 
         String path = request.getRequestURI().split("/files/")[1];
-        Path base = Paths.get(s.getStoragePath());
-        Path target = base.resolve(path).normalize();
 
-        if (!target.startsWith(base) || !Files.exists(target)) {
+        Path base = Paths.get(s.getStoragePath());
+
+        Path tilesDir = base.resolve("workspace").resolve("01_tiles");
+        Path target = tilesDir.resolve(path).normalize();
+
+        if (!target.startsWith(tilesDir) || !Files.exists(target)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "file not found");
         }
 
