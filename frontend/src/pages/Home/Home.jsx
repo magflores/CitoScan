@@ -541,6 +541,9 @@ export default function Home() {
 
                         {results?.topPatches?.slice(0, topCount).map((p, i) => (
                             <div key={i} className="home__patchItem">
+
+                                <div className="home__patchIndex">{i + 1}</div>
+
                                 <MiniPatch
                                     sessionId={sessionId}
                                     relPath={p.rel_path}
@@ -548,8 +551,9 @@ export default function Home() {
                                 />
 
                                 <div className="home__patchInfo">
+                                    {/*@TODO: Equivalencia de clase de lesion a HSIL, LSIL*/}
                                     <div className="home__patchCls">{p.cls || "—"}</div>
-                                    <div className="home__patchConf">{(p.conf ?? 0).toFixed(3)}</div>
+                                    {/* @TODO: Boton de descarga de mini parches   */}
                                 </div>
                             </div>
                         ))}
