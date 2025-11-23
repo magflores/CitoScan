@@ -9,8 +9,7 @@
 }
 
 .home__loader {
-    width: 500px;
-    height: auto;
+    height: 300px;
     display: block;
     margin: 0 auto;
 }
@@ -55,7 +54,7 @@
 .dropzone__input { display: none; }
 
 .dropzone__previewLoader {
-    position: absolute; inset: 0;
+    inset: 0;
     display: grid; place-items: center; gap: 8px;
     background: rgba(255,255,255,.65);
     text-align: center; color: #374151;
