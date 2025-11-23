@@ -537,7 +537,26 @@ export default function Home() {
 
                     {/* Panel derecho con mensaje “Seleccione un miniparche” */}
                     <div className="home__resultsPatchPanel">
-                        <span>Seleccione un miniparche</span>
+                        <h3 className="home__patchTitle">Miniparches representativos</h3>
+
+                        {results?.topPatches?.slice(0, topCount).map((p, i) => (
+                            <div key={i} className="home__patchItem">
+                                <MiniPatch
+                                    sessionId={sessionId}
+                                    relPath={p.rel_path}
+                                    alt={`patch-${i + 1}`}
+                                />
+
+                                <div className="home__patchInfo">
+                                    <div className="home__patchCls">{p.cls || "—"}</div>
+                                    <div className="home__patchConf">{(p.conf ?? 0).toFixed(3)}</div>
+                                </div>
+                            </div>
+                        ))}
+
+                        {!results?.topPatches?.length && (
+                            <div className="home__patchPlaceholder">No hay miniparches disponibles</div>
+                        )}
                     </div>
                 </div>
 
