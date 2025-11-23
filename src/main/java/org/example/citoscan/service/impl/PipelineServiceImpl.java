@@ -117,7 +117,7 @@ public class PipelineServiceImpl implements PipelineService {
                 con.setDoOutput(true);
                 con.setRequestMethod("POST");
                 con.setConnectTimeout(60_000);
-                con.setReadTimeout(60_000);
+                con.setReadTimeout(0);
                 con.setRequestProperty("Content-Type", "application/json");
 
                 var payload = new java.util.HashMap<String, Object>();

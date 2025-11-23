@@ -149,7 +149,7 @@ public class PipelineRunner {
                 con.setDoOutput(true);
                 con.setRequestMethod("POST");
                 con.setConnectTimeout(60_000);
-                con.setReadTimeout(0); // espera hasta terminar
+                con.setReadTimeout(0);
                 con.setRequestProperty("Content-Type","application/json");
                 try (var os = con.getOutputStream()) {
                     os.write(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsBytes(payload));
