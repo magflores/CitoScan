@@ -218,6 +218,35 @@ export async function createPipelineSession(file: File): Promise<CreateSessionRe
     return await res.json();
 }
 
+export async function createPipelineSessionPreview(file: File): Promise<CreateSessionRes> {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch(joinUrl(API, "/pipeline/sessions/preview"), {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+        headers: {
+            ...authHeader(),
+        },
+    });
+
+    if (!res.ok) {
+        if (res.status === 413) {
+            throw { message: "El archivo supera el máximo permitido por el servidor." };
+        }
+        let msg = "";
+        try {
+            msg = await res.text();
+        } catch {
+        }
+        throw { message: msg || "Falló la creación de la sesión (preview)." };
+    }
+
+    return await res.json();
+}
+
+
 /** PIPELINE — status & results **/
 
 export type PipelineStatus = "QUEUED" | "RUNNING" | "DONE" | "ERROR";
@@ -271,6 +300,10 @@ export type PipelineResultsDto = {
 
 export function getPipelineResults(id: number) {
     return getJSON<PipelineResultsDto>(`/pipeline/sessions/${id}/results`);
+}
+
+export function runPipelineSession(id: number) {
+    return req<PipelineSessionDto>("POST", `/pipeline/sessions/${id}/run`, {});
 }
 
 /** helper para armar URL a artifacts de la sesión */

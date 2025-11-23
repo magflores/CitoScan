@@ -6,6 +6,8 @@ import Header from "../../components/Header/Header.jsx";
 import loaderGif from "../../assets/citoGif.gif";
 import {
     createPipelineSession,
+    createPipelineSessionPreview,
+    runPipelineSession,
     getPipelineSession,
     getPipelineResults,
     fetchPipelinePreview,
@@ -30,6 +32,7 @@ export default function Home() {
     const [sessionId, setSessionId] = useState(null);
     const [status, setStatus] = useState(null); // "QUEUED" | "RUNNING" | "DONE" | "ERROR" | null
     const [results, setResults] = useState(null);
+    const [isImageUpload, setIsImageUpload] = useState(false);
 
     const inputRef = useRef(null);
     const [dragOver, setDragOver] = useState(false);
@@ -65,6 +68,7 @@ export default function Home() {
     function clearFile() {
         setError("");
         setFile(null);
+        setIsImageUpload(false);
         setLoadingPreview(false);
         if (previewUrl) {
             URL.revokeObjectURL(previewUrl);
@@ -77,7 +81,7 @@ export default function Home() {
         stopPolling();
     }
 
-    function validateAndSet(f) {
+    async function validateAndSet(f) {
         if (!f) return;
         const ext = "." + f.name.split(".").pop().toLowerCase();
 
@@ -92,20 +96,43 @@ export default function Home() {
             return;
         }
 
+        if (previewUrl) {
+            URL.revokeObjectURL(previewUrl);
+            setPreviewUrl(null);
+        }
         setFile(f);
         setError("");
         setSessionId(null);
         setStatus(null);
         setResults(null);
 
-        if (isImageFile(f)) {
+        const isImg = IMG_EXT.includes(ext);
+        setIsImageUpload(isImg);
+
+        if (isImg) {
             const url = URL.createObjectURL(f);
-            if (previewUrl) URL.revokeObjectURL(previewUrl);
             setPreviewUrl(url);
-            setLoadingPreview(true);
-        } else {
-            if (previewUrl) URL.revokeObjectURL(previewUrl);
+            setLoadingPreview(false);
+            return;
+        }
+
+        setLoadingPreview(true);
+        try {
+            const session = await createPipelineSessionPreview(f);
+            const id = session.id || session.sessionId || null;
+            if (id == null) {
+                throw new Error("No se obtuvo el ID de la sesión de preview.");
+            }
+            setSessionId(id);
+            setStatus(session.status || "UPLOADED");
+
+            const blob = await fetchPipelinePreview(id);
+            const url = URL.createObjectURL(blob);
+            setPreviewUrl(url);
+        } catch (e) {
+            setError(e.message || "No se pudo generar la vista previa del archivo .svs.");
             setPreviewUrl(null);
+        } finally {
             setLoadingPreview(false);
         }
     }
@@ -205,20 +232,21 @@ export default function Home() {
         try {
             setUploading(true);
             setError("");
-            setSessionId(null);
             setStatus(null);
             setResults(null);
-            setPreviewUrl(null);
-            setLoadingPreview(false);
 
-            const session = await createPipelineSession(file);
-            const id = session.id || session.sessionId || null;
+            let id = sessionId;
+            let session;
+
+            if (id != null && !isImageUpload) {
+                session = await runPipelineSession(id);
+            } else {
+                session = await createPipelineSession(file);
+            }
+
+            id = session.id || session.sessionId || id;
             setSessionId(id);
             setStatus(session.status || "QUEUED");
-
-            if (session.previewPath) {
-                setPreviewUrl(`http://localhost:8080/${session.previewPath}`);
-            }
 
             if (id != null) {
                 await startPolling(id);
@@ -231,6 +259,7 @@ export default function Home() {
             setUploading(false);
         }
     }
+
 
 
     function handleBack() {
@@ -429,22 +458,29 @@ export default function Home() {
                                         )}
                                     </>
                                 ) : file ? (
-                                    <div className="dropzone__empty">
-                                        <div className="dropzone__icon" aria-hidden>
-                                            ⤴
+                                    loadingPreview ? (
+                                        <div className="dropzone__previewLoader">
+                                            <img src={loaderGif} alt="" className="home__loader" />
+                                            <span>Generando vista previa...</span>
                                         </div>
-                                        <div className="dropzone__text">
-                                            Vista previa no disponible. Arrastrá otra imagen o{" "}
-                                            <button
-                                                type="button"
-                                                className="dropzone__link"
-                                                onClick={browseFile}
-                                                disabled={isBusy}
-                                            >
-                                                subí un archivo
-                                            </button>
+                                    ) : (
+                                        <div className="dropzone__empty">
+                                            <div className="dropzone__icon" aria-hidden>
+                                                ⤴
+                                            </div>
+                                            <div className="dropzone__text">
+                                                Vista previa no disponible. Arrastrá otra imagen o{" "}
+                                                <button
+                                                    type="button"
+                                                    className="dropzone__link"
+                                                    onClick={browseFile}
+                                                    disabled={isBusy}
+                                                >
+                                                    subí un archivo
+                                                </button>
+                                            </div>
                                         </div>
-                                    </div>
+                                    )
                                 ) : (
                                     <div className="dropzone__empty">
                                         <div className="dropzone__icon" aria-hidden>
@@ -464,6 +500,7 @@ export default function Home() {
                                     </div>
                                 )}
                             </div>
+
 
                             <input
                                 ref={inputRef}

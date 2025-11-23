@@ -32,6 +32,20 @@ public class PipelineController {
         return pipelineService.createAndRun(file, allParams);
     }
 
+    @PostMapping("/sessions/preview")
+    public PipelineSession createPreview(@RequestParam("file") MultipartFile file,
+                                         @RequestParam Map<String, String> allParams) throws IOException {
+        allParams.remove("file");
+        return pipelineService.createPreviewOnly(file, allParams);
+    }
+
+    @PostMapping("/sessions/{id}/run")
+    public PipelineSession runExisting(@PathVariable Long id,
+                                       @RequestBody(required = false) Map<String, String> body) throws IOException {
+        Map<String, String> opts = (body == null) ? Map.of() : body;
+        return pipelineService.runExisting(id, opts);
+    }
+
     @GetMapping("/sessions/{id}")
     public ResponseEntity<PipelineSession> get(@PathVariable Long id) {
         return pipelineService.get(id)

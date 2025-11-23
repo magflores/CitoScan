@@ -193,6 +193,16 @@ public class PipelineServiceImpl implements PipelineService {
     @Override
     @Transactional
     public PipelineSession createAndRun(MultipartFile svsFile, Map<String, String> opts) throws IOException {
+        return createInternal(svsFile, opts, true);
+    }
+
+    @Transactional
+    @Override
+    public PipelineSession createPreviewOnly(MultipartFile svsFile, Map<String, String> opts) throws IOException {
+        return createInternal(svsFile, opts, false);
+    }
+
+    private PipelineSession createInternal(MultipartFile svsFile, Map<String, String> opts, boolean runAfterCommit) throws IOException {
         Long userId = currentUserId();
 
         if (svsFile == null || svsFile.isEmpty()) {
@@ -204,7 +214,7 @@ public class PipelineServiceImpl implements PipelineService {
 
         PipelineSession s = new PipelineSession();
         s.setUserId(userId);
-        s.setStatus("QUEUED");
+        s.setStatus(runAfterCommit ? "QUEUED" : "UPLOADED");
         s.setCreatedAt(Instant.now());
         s = repo.save(s);
 
@@ -250,12 +260,45 @@ public class PipelineServiceImpl implements PipelineService {
         s.setCellsPredsPath(cellsRawPredsDir.toString());
         s.setLogPath(logsDir.resolve("pipeline.log").toString());
         s.setReportPath(reportsDir.resolve("pipeline_report.json").toString());
+        s = repo.save(s);
+
+        if (runAfterCommit) {
+            final Long sessionId = s.getId();
+            final Map<String, String> optsCopy = (opts == null) ? Map.of() : new LinkedHashMap<>(opts);
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    pipelineRunner.runAsync(
+                            sessionId, svsPath, sessionDir, optsCopy, logsDir, reportsDir
+                    );
+                }
+            });
+        }
+
+        return s;
+    }
+
+    @Transactional
+    @Override
+    public PipelineSession runExisting(Long id, Map<String, String> opts) throws IOException {
+        Long userId = currentUserId();
+        PipelineSession s = repo.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new NoSuchElementException("session not found"));
+
+        Path sessionDir = Paths.get(s.getStoragePath());
+        Path svsPath    = sessionDir.resolve("input").resolve(s.getSlideName());
+        Path logsDir    = sessionDir.resolve("artifacts").resolve("logs");
+        Path reportsDir = sessionDir.resolve("artifacts").resolve("reports");
+
+        final Map<String, String> optsCopy = (opts == null) ? Map.of() : new LinkedHashMap<>(opts);
+        final Long sessionId = s.getId();
+
+        s.setStatus("QUEUED");
         repo.save(s);
 
-        final Long sessionId = s.getId();
-        final Map<String, String> optsCopy = (opts == null) ? Map.of() : new LinkedHashMap<>(opts);
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override public void afterCommit() {
+            @Override
+            public void afterCommit() {
                 pipelineRunner.runAsync(
                         sessionId, svsPath, sessionDir, optsCopy, logsDir, reportsDir
                 );
