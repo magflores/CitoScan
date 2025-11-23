@@ -39,8 +39,27 @@ export default function Home() {
     const [currentStep, setCurrentStep] = useState(0); // 0-3 para los pasos del pipeline
     const [analysisStartTime, setAnalysisStartTime] = useState(null);
     const [dots, setDots] = useState('');
+    const [showStatsModal, setShowStatsModal] = useState(false);
 
     const inputRef = useRef(null);
+
+    // Función para obtener el conteo de células del reporte JSON
+    const getCellCount = useMemo(() => {
+        if (!results?.pipelineReportJson) return null;
+        try {
+            const report = JSON.parse(results.pipelineReportJson);
+            if (report?.cells?.stats) {
+                // Intentar obtener el conteo de células desde las estadísticas
+                const stats = report.cells.stats;
+                if (typeof stats.total === 'number') return stats.total;
+                if (typeof stats.detected === 'number') return stats.detected;
+                if (typeof stats.count === 'number') return stats.count;
+            }
+        } catch (e) {
+            console.warn("No se pudo parsear el reporte JSON", e);
+        }
+        return null;
+    }, [results?.pipelineReportJson]);
     const [dragOver, setDragOver] = useState(false);
     const pollRef = useRef(null);
 
@@ -532,17 +551,17 @@ export default function Home() {
                         </span>
                     </div>
 
-                    <div className="home__resultsLinks">
-                        <button type="button" className="text-link">
-                            Ver estadísticas del análisis
-                        </button>
-                        <button type="button" className="text-link">
-                            Descargar resultados del análisis
-                        </button>
-                        <button type="button" className="text-link">
-                            Vista detallada de los miniparches
-                        </button>
-                    </div>
+                    <button type="button" className="text-link">
+                        Descargar resultados del análisis
+                    </button>
+
+                    <button 
+                        type="button" 
+                        className="text-link"
+                        onClick={() => setShowStatsModal(true)}
+                    >
+                        Ver estadísticas del análisis
+                    </button>
                 </div>
 
                 <div className="home__resultsActions">
@@ -724,6 +743,77 @@ export default function Home() {
                     </>
                 )}
             </div>
+
+            <Modal open={showStatsModal} onClose={() => setShowStatsModal(false)}>
+                <div className="home__stats">
+                    <h3 className="home__statsTitle">Estadísticas del análisis</h3>
+                    <div className="home__statsList">
+                        <div className="home__statsItem">
+                            <span className="home__statsLabel">
+                                Cantidad total de miniparches generados:
+                            </span>
+                            <span className="home__statsValue">
+                                {results?.tilesTotal ?? "—"}
+                            </span>
+                        </div>
+                        <div className="home__statsItem">
+                            <span className="home__statsLabel">
+                                Cantidad de miniparches descargados luego del análisis de Fondo/No Fondo:
+                            </span>
+                            <span className="home__statsValue">
+                                {results?.notBackgroundTotal ?? "—"}
+                            </span>
+                        </div>
+                        <div className="home__statsItem">
+                            <span className="home__statsLabel">
+                                Cantidad de miniparches descargados luego del análisis de Apto/No Apto:
+                            </span>
+                            <span className="home__statsValue">
+                                {results?.aptoTotal ?? "—"}
+                            </span>
+                        </div>
+                        <div className="home__statsItem">
+                            <span className="home__statsLabel">
+                                Cantidad de células utilizadas para generar el diagnóstico:
+                            </span>
+                            <span className="home__statsValue">
+                                {getCellCount ?? results?.aptoTotal ?? "—"}
+                            </span>
+                        </div>
+                    </div>
+                    <div className="home__statsActions">
+                        <Button 
+                            variant="outline" 
+                            tone="blue" 
+                            onClick={() => {
+                                // Crear objeto con las estadísticas
+                                const statsData = {
+                                    cantidadTotalMiniparchesGenerados: results?.tilesTotal ?? null,
+                                    cantidadMiniparchesDespuesFondoNoFondo: results?.notBackgroundTotal ?? null,
+                                    cantidadMiniparchesDespuesAptoNoApto: results?.aptoTotal ?? null,
+                                    cantidadCelulasUtilizadas: getCellCount ?? results?.aptoTotal ?? null,
+                                    diagnosticoPosible: results?.possibleDiagnosis ?? null,
+                                    fecha: new Date().toISOString()
+                                };
+
+                                // Convertir a JSON y descargar
+                                const jsonStr = JSON.stringify(statsData, null, 2);
+                                const blob = new Blob([jsonStr], { type: 'application/json' });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `estadisticas-analisis-${sessionId || 'desconocido'}-${Date.now()}.json`;
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                                URL.revokeObjectURL(url);
+                            }}
+                        >
+                            Descargar
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
         </>
     );
 }
