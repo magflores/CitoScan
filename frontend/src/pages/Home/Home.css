@@ -19,6 +19,7 @@
     border-radius: 16px;
     background: #fff;
     padding: 0;
+    margin-bottom: 0;
 }
 .dropzone.is-over {
     background: rgba(189, 222, 230, .12);
@@ -64,9 +65,10 @@
 .dropzone__error { margin-top: 8px; color: #9b1c1c; font-size: 13px; }
 
 .home__below {
-    min-height: 64px;
+    min-height: 40px;
     display: grid;
     align-content: center;
+    margin-top: 12px;
 }
 
 .home__metaRow {
@@ -79,6 +81,11 @@
 .home__filename {
     flex: 1; color: #374151;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    transition: color 0.3s ease;
+    margin-left: 5px;
+}
+.home__filename--loading {
+    color: #9ca3af;
 }
 .home__remove {
     width: 32px; height: 32px; border-radius: 999px;
@@ -93,6 +100,7 @@
     display: grid;
     grid-template-columns: max-content;
     justify-content: center;
+    margin-top: 10px;
 }
 .home__actions .home__analyze { width: 100%; min-width: 280px; }
 
@@ -270,6 +278,53 @@
 .home__resultsActions {
     margin-top: 24px;
     text-align: center;
+}
+
+/* ===== Processing View ===== */
+.home__processing {
+    margin-top: 50px;
+}
+
+/* ===== Pipeline Steps ===== */
+.home__pipelineSteps {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 35px 0 50px;
+    padding: 0 24px;
+}
+
+.home__pipelineStep {
+    font-size: 15px;
+    line-height: 1.5;
+    transition: color 0.3s ease;
+}
+
+.home__pipelineStep--pending {
+    color: #9ca3af;
+}
+
+.home__pipelineStep--active {
+    color: #111827;
+    font-weight: 500;
+}
+
+.home__pipelineStep--completed {
+    color: #111827;
+}
+
+.home__pipelineStepDots {
+    display: inline-block;
+    margin-left: 4px;
+    min-width: 24px;
+    text-align: left;
+}
+
+.home__pipelineStepCheck {
+    display: inline-block;
+    margin-left: 8px;
+    color: #059669;
+    font-weight: 600;
 }
 
 /* Responsive: apilar columnas en pantallas chicas */

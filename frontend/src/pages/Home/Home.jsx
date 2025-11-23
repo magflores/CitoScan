@@ -34,6 +34,9 @@ export default function Home() {
     const [results, setResults] = useState(null);
     const [topCount, setTopCount] = useState(5);
     const [isImageUpload, setIsImageUpload] = useState(false);
+    const [currentStep, setCurrentStep] = useState(0); // 0-3 para los pasos del pipeline
+    const [analysisStartTime, setAnalysisStartTime] = useState(null);
+    const [dots, setDots] = useState('');
 
     const inputRef = useRef(null);
     const [dragOver, setDragOver] = useState(false);
@@ -198,6 +201,66 @@ export default function Home() {
         () => !!file && !error && !loadingPreview && !isBusy,
         [file, error, loadingPreview, isBusy]
     );
+
+    // Pasos del pipeline
+    const pipelineSteps = [
+        "Creando miniparches",
+        "Descartando miniparches vacíos",
+        "Aplicando filtro de aptitud",
+        "Generando diagnóstico"
+    ];
+
+    // Animación de puntos
+    useEffect(() => {
+        if (!isBusy || currentStep === pipelineSteps.length) {
+            setDots('');
+            return;
+        }
+
+        const interval = setInterval(() => {
+            setDots(prev => {
+                if (prev === '') return '.';
+                if (prev === '.') return '..';
+                if (prev === '..') return '...';
+                return '';
+            });
+        }, 500);
+
+        return () => clearInterval(interval);
+    }, [isBusy, currentStep, pipelineSteps.length]);
+
+    // Actualizar el paso actual basado en el tiempo transcurrido
+    useEffect(() => {
+        if (!isBusy) {
+            setCurrentStep(0);
+            setAnalysisStartTime(null);
+            return;
+        }
+
+        if (analysisStartTime === null) {
+            setAnalysisStartTime(Date.now());
+            setCurrentStep(0);
+            return;
+        }
+
+        const interval = setInterval(() => {
+            const elapsed = (Date.now() - analysisStartTime) / 1000; // segundos
+            
+            // Simular progreso de pasos basado en tiempo
+            // Ajustar estos tiempos según la duración real esperada
+            if (elapsed < 10) {
+                setCurrentStep(0);
+            } else if (elapsed < 25) {
+                setCurrentStep(1);
+            } else if (elapsed < 45) {
+                setCurrentStep(2);
+            } else {
+                setCurrentStep(3);
+            }
+        }, 500);
+
+        return () => clearInterval(interval);
+    }, [isBusy, analysisStartTime, status]);
     const markers = useMemo(() => {
         if (!results?.topPatches || !Array.isArray(results.topPatches)) return [];
 
@@ -224,6 +287,7 @@ export default function Home() {
 
             if (s.status === "DONE") {
                 stopPolling();
+                setCurrentStep(4); // Marcar todos los pasos como completados (4 = todos los pasos)
                 try {
                     const r = await getPipelineResults(id);
                     setResults(r);
@@ -290,9 +354,31 @@ export default function Home() {
             <div className="home__status busy" aria-live="polite">
                 <img src={loaderGif} alt="" className="home__loader" />
             </div>
+            <div className="home__pipelineSteps">
+                {pipelineSteps.map((step, index) => (
+                    <div
+                        key={index}
+                        className={`home__pipelineStep ${
+                            index < currentStep
+                                ? "home__pipelineStep--completed"
+                                : index === currentStep && currentStep < pipelineSteps.length
+                                ? "home__pipelineStep--active"
+                                : "home__pipelineStep--pending"
+                        }`}
+                    >
+                        {step}
+                        {index === currentStep && currentStep < pipelineSteps.length && (
+                            <span className="home__pipelineStepDots">{dots}</span>
+                        )}
+                        {index < currentStep && (
+                            <span className="home__pipelineStepCheck"> ✓</span>
+                        )}
+                    </div>
+                ))}
+            </div>
             <div className="home__actions">
                 <Button variant="muted" tone="blue" disabled className="home__analyze">
-                    Procesando…
+                    Analizando...
                 </Button>
             </div>
         </div>
@@ -555,7 +641,10 @@ export default function Home() {
                                 </div>
                             ) : (
                                 <div className="home__fileRow">
-                                    <div className="home__filename" title={file.name}>
+                                    <div 
+                                        className={`home__filename ${loadingPreview ? 'home__filename--loading' : ''}`} 
+                                        title={file.name}
+                                    >
                                         {file.name}
                                     </div>
                                     <button
