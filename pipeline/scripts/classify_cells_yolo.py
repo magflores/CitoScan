@@ -5,6 +5,8 @@ import argparse, csv, json, shutil
 from pathlib import Path
 from typing import List, Dict
 import torch
+torch.set_num_threads(1)
+torch.set_num_interop_threads(1)
 from ultralytics import YOLO
 from utils.io_utils import ensure_dir
 
@@ -136,7 +138,7 @@ def main():
         iou=args.iou,
         device=device,
         classes=args.classes,
-        stream=False,
+        stream=True,          # CLAVE: generador, no lista
         save=args.save_annot,
         save_txt=False,
         save_conf=True,
@@ -144,6 +146,7 @@ def main():
         name=ann_dir.name if args.save_annot else None,
         verbose=False,
         batch=args.batch_size,
+        workers=0,
     )
 
     preds_csv = raw_dir / "preds.csv"

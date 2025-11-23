@@ -1,7 +1,6 @@
 import argparse, json, sys, time, subprocess, os
 from pathlib import Path
 from copy import deepcopy
-from typing import Optional
 import yaml
 
 from utils.io_utils import ensure_dir
