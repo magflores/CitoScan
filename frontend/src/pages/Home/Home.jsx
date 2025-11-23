@@ -32,6 +32,7 @@ export default function Home() {
     const [sessionId, setSessionId] = useState(null);
     const [status, setStatus] = useState(null); // "QUEUED" | "RUNNING" | "DONE" | "ERROR" | null
     const [results, setResults] = useState(null);
+    const [topCount, setTopCount] = useState(5);
     const [isImageUpload, setIsImageUpload] = useState(false);
 
     const inputRef = useRef(null);
@@ -197,6 +198,24 @@ export default function Home() {
         () => !!file && !error && !loadingPreview && !isBusy,
         [file, error, loadingPreview, isBusy]
     );
+    const markers = useMemo(() => {
+        if (!results?.topPatches || !Array.isArray(results.topPatches)) return [];
+
+        return results.topPatches
+            .slice(0, topCount)
+            .map((p, idx) => {
+                const normX = p.normX ?? p.normx ?? null;
+                const normY = p.normY ?? p.normy ?? null;
+                if (normX == null || normY == null) return null;
+
+                return {
+                    id: idx + 1,
+                    normX,
+                    normY,
+                };
+            })
+            .filter(Boolean);
+    }, [results, topCount]);
 
     async function refreshSession(id) {
         try {
@@ -350,7 +369,11 @@ export default function Home() {
                         </button>
                     </div>
 
-                    <select className="home__resultsSelect" defaultValue="5">
+                    <select
+                        className="home__resultsSelect"
+                        value={String(topCount)}
+                        onChange={(e) => setTopCount(Number(e.target.value))}
+                    >
                         <option value="5">5 miniparches más confiables</option>
                         <option value="10">10 miniparches más confiables</option>
                     </select>
@@ -365,7 +388,19 @@ export default function Home() {
                                     src={previewUrl}
                                     alt="Vista previa del análisis"
                                 />
-                                {/* Más adelante acá van los puntos de miniparches */}
+
+                                {markers.map((m) => (
+                                    <div
+                                        key={m.id}
+                                        className="home__marker"
+                                        style={{
+                                            left: `${m.normX * 100}%`,
+                                            top: `${m.normY * 100}%`,
+                                        }}
+                                    >
+                                        {m.id}
+                                    </div>
+                                ))}
                             </div>
                         ) : (
                             <div className="home__resultsPlaceholder">

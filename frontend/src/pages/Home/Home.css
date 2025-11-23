@@ -193,6 +193,8 @@
     align-items: center;
     justify-content: center;
     width: 100%;
+    position: relative;
+    overflow: hidden;
 }
 
 .home__resultsImageInner img {
@@ -203,6 +205,23 @@
     max-width: 100%;
     object-fit: contain;
     display: block;
+}
+
+.home__marker {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    background: #111827;
+    color: #f9fafb;
+    font-size: 11px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
+    pointer-events: none;
 }
 
 .home__resultsPlaceholder {

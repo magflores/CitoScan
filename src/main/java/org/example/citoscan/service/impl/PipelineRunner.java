@@ -1,5 +1,6 @@
 package org.example.citoscan.service.impl;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.csv.CSVFormat;
@@ -16,6 +17,8 @@ import java.io.Reader;
 import java.nio.file.*;
 import java.time.Instant;
 import java.util.*;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 
 @Service
@@ -41,6 +44,13 @@ public class PipelineRunner {
     private String wslPython;
 
     private final PipelineSessionRepository repo;
+    private static final int TILE_SIZE = 1024;
+
+
+    private static final Pattern TILE_COORD_PATTERN = Pattern.compile(
+            ".*_x(\\d+)_y(\\d+)(?:\\.[^.]+)?$",
+            Pattern.CASE_INSENSITIVE
+    );
 
 
     private Path root() {
@@ -343,6 +353,37 @@ public class PipelineRunner {
         out.diagnosis = "Sin lesion";
         out.top = new ArrayList<>();
 
+        Path workspaceDir = csvPath.toAbsolutePath().getParent(); // raw_preds
+        while (workspaceDir != null && !workspaceDir.getFileName().toString().equals("workspace")) {
+            workspaceDir = workspaceDir.getParent();
+        }
+
+        int slideW = 0;
+        int slideH = 0;
+
+        if (workspaceDir != null) {
+            Path metaPath = workspaceDir.resolve("01_tiles").resolve("tiles_meta.json");
+
+            if (Files.exists(metaPath)) {
+                ObjectMapper mapper = new ObjectMapper();
+                try (Reader metaReader = Files.newBufferedReader(metaPath)) {
+                    JsonNode node = mapper.readTree(metaReader);
+
+                    JsonNode slidesNode = node.path("slides");
+                    if (slidesNode.isArray() && !slidesNode.isEmpty()) {
+                        JsonNode dimNode = slidesNode.get(0).path("dimensions");
+                        slideW = dimNode.path("w").asInt(0);
+                        slideH = dimNode.path("h").asInt(0);
+                    }
+
+                }
+            }else {
+                System.err.println("Error tiles_meta.json NO existe en " + metaPath);
+            }
+        } else {
+            System.out.println("Error no se encontró carpeta 'workspace' subiendo desde " + csvPath);
+        }
+
         try (Reader in = Files.newBufferedReader(csvPath);
              CSVParser csv = CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).build().parse(in)) {
 
@@ -362,6 +403,38 @@ public class PipelineRunner {
                 entry.put("rel_path", rel);
                 entry.put("cls", cls);
                 entry.put("conf", conf);
+
+                if (rel != null && !rel.isBlank()) {
+                    try {
+                        String filename = Paths.get(rel).getFileName().toString();
+                        Matcher m = TILE_COORD_PATTERN.matcher(filename);
+                        if (m.matches()) {
+                            int x = Integer.parseInt(m.group(1));
+                            int y = Integer.parseInt(m.group(2));
+                            int w = TILE_SIZE;
+                            int h = TILE_SIZE;
+
+                            int cx = x + w / 2;
+                            int cy = y + h / 2;
+
+                            entry.put("x", x);
+                            entry.put("y", y);
+                            entry.put("w", w);
+                            entry.put("h", h);
+                            entry.put("cx", cx);
+                            entry.put("cy", cy);
+
+                            if (slideW > 0 && slideH > 0) {
+                                double normX = cx / (double) slideW;
+                                double normY = cy / (double) slideH;
+                                entry.put("normX", normX);
+                                entry.put("normY", normY);
+                            }
+                        }
+                    } catch (Exception ignore) {
+                    }
+                }
+
                 out.top.add(entry);
             }
         }
@@ -391,8 +464,8 @@ public class PipelineRunner {
             int r = severityRank(cls);
             if (r > bestRank) bestRank = r;
         }
-        out.diagnosis = mapSeverityToBucket(bestRank);
 
+        out.diagnosis = mapSeverityToBucket(bestRank);
         return out;
     }
 
