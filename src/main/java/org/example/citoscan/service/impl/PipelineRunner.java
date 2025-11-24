@@ -401,7 +401,9 @@ public class PipelineRunner {
 
                 Map<String, Object> entry = new LinkedHashMap<>();
                 entry.put("rel_path", rel);
-                entry.put("cls", cls);
+                entry.put("cls_raw", cls);
+                int rank = severityRank(cls);
+                entry.put("cls", mapSeverityToBucket(rank));
                 entry.put("conf", conf);
 
                 if (rel != null && !rel.isBlank()) {
@@ -440,8 +442,8 @@ public class PipelineRunner {
         }
 
         out.top.sort((a, b) -> {
-            String clsA = Objects.toString(a.get("cls"), "");
-            String clsB = Objects.toString(b.get("cls"), "");
+            String clsA = Objects.toString(a.get("cls_raw"), "");
+            String clsB = Objects.toString(b.get("cls_raw"), "");
             int sevA = severityRank(clsA);
             int sevB = severityRank(clsB);
 
@@ -460,7 +462,7 @@ public class PipelineRunner {
 
         int bestRank = 0;
         for (var m : out.top) {
-            String cls = Objects.toString(m.get("cls"), null);
+            String cls = Objects.toString(m.get("cls_raw"), null);
             int r = severityRank(cls);
             if (r > bestRank) bestRank = r;
         }
