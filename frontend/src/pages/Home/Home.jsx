@@ -253,7 +253,7 @@ export default function Home() {
 
     // Pasos del pipeline
     const pipelineSteps = [
-        "Creando miniparches",
+        "Generando miniparches",
         "Descartando miniparches vacíos",
         "Aplicando filtro de aptitud",
         "Generando diagnóstico"
