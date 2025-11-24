@@ -1,4 +1,4 @@
-.home { padding: 0 24px 24px 24px; max-width: 980px; margin: 0 auto; }
+.home { padding: 0 24px 24px 24px; max-width: 1280px; margin: 0 auto; }
 
 .home__lead {
     text-align: center;
@@ -33,11 +33,13 @@
     overflow: hidden;
     border-radius: 14px;
     display: grid;
+    margin: 5px;
     place-items: center;
 }
 
 .dropzone__img {
-    max-width: 400px;
+    max-width: 75%;
+    max-height: var(--dz-h);
     object-fit: contain;
     border-radius: 14px;
     background: #f9fafb;
@@ -256,6 +258,7 @@
 
 .home__patchItem {
     display: flex;
+    width: 100%;
     gap: 8px;
     align-items: center;
     margin-top: 8px;
@@ -263,31 +266,79 @@
     border-radius: 10px;
     background: #fff;
     border: 1px solid #e5e7eb;
+    position: relative;
 }
 
-.home__patchThumb {
-    width: 64px;
-    height: 64px;
-    border-radius: 8px;
-    object-fit: cover;
-    flex-shrink: 0;
-    background: #f3f4f6;
+.home__patchIndex {
+    margin-right: 8px;
+    margin-left: 8px;
+    width: 12px;
 }
 
-.home__patchThumb--placeholder {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
-    color: #9ca3af;
-}
 
 .home__patchInfo {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    font-size: 13px;
+    margin-left: 12px;
 }
+
+.home__downloadBtn {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+
+    border: none;
+    border-radius: 8px;
+    backdrop-filter: blur(4px);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    cursor: pointer;
+}
+
+.home__downloadBtn img {
+    width: 18px;
+    height: 18px;
+    filter: invert(1);
+}
+
+.home__downloadBtn::after {
+    content: "Descargar miniparche";
+    position: absolute;
+
+    bottom: 40px;
+    right: 0;
+
+    padding: 6px 10px;
+    font-size: 12px;
+    border-radius: 6px;
+
+    background: #d8dbe0;
+    color: #111827;
+
+    white-space: nowrap;
+
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(4px);
+    transition: opacity .15s ease, transform .15s ease;
+
+    /*box-shadow: 0 2px 6px rgba(0,0,0,0.25);*/
+    z-index: 10;
+}
+
+/* Mostrar tooltip al hover */
+.home__downloadBtn:hover::after {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+
 
 .home__resultsFooter {
     display: flex;
@@ -411,6 +462,45 @@
     display: flex;
     justify-content: center;
     margin-top: 8px;
+}
+
+.home__globalScrollHint {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 9999;
+    pointer-events: none;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.home__globalScrollHintCircle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(4px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    font-size: 22px;
+    color: white;
+    font-weight: 600;
+
+    animation: bounce 1.5s infinite ease-in-out;
+}
+
+/* Animaciones */
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(8px); }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
 
 /* Responsive: apilar columnas en pantallas chicas */

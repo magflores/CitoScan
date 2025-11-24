@@ -13,6 +13,8 @@ import {
     fetchPipelinePreview,
 } from "../../features/auth/api";
 
+import downloadIcon from "../../assets/download.svg";
+
 import MiniPatch from "../../components/MiniPatch/MiniPatch.jsx";
 
 const LOCALSTORAGE_KEY = "cs_hide_welcome_v1";
@@ -42,6 +44,32 @@ export default function Home() {
     const [showStatsModal, setShowStatsModal] = useState(false);
 
     const inputRef = useRef(null);
+
+    const [showPageScrollHint, setShowPageScrollHint] = useState(false);
+
+    useEffect(() => {
+        function checkScroll() {
+            const scrollTop = window.scrollY;
+            const viewport = window.innerHeight;
+            const fullHeight = document.body.scrollHeight;
+
+            const atBottom = scrollTop + viewport >= fullHeight - 10;
+            const canScroll = fullHeight > viewport + 20;
+
+            setShowPageScrollHint(!atBottom && canScroll);
+        }
+
+        checkScroll();
+
+        window.addEventListener("scroll", checkScroll);
+        window.addEventListener("resize", checkScroll);
+
+        return () => {
+            window.removeEventListener("scroll", checkScroll);
+            window.removeEventListener("resize", checkScroll);
+        };
+    }, [results, status]);
+
 
     // Función para obtener el conteo de células del reporte JSON
     const getCellCount = useMemo(() => {
@@ -370,6 +398,11 @@ export default function Home() {
         clearFile();
     }
 
+    function onDownloadPatch(relPath) {
+        console.log("Descargar parche:", relPath);
+        // TODO: implementar descarga real
+    }
+
     const processingUI = (
         <div className="home__processing">
             <div className="home__status busy" aria-live="polite">
@@ -510,32 +543,11 @@ export default function Home() {
                                 ))}
                             </div>
                         ) : (
-                            <div className="home__resultsPatchPanel">
-                                <h3 className="home__patchTitle">Miniparches representativos</h3>
-
-                                {results?.topPatches?.slice(0, topCount).map((p, i) => (
-                                    <div key={i} className="home__patchItem">
-                                        <MiniPatch
-                                            sessionId={sessionId}
-                                            relPath={p.rel_path}
-                                            alt={`patch-${i + 1}`}
-                                        />
-
-                                        <div className="home__patchInfo">
-                                            <div className="home__patchCls">{p.cls || "—"}</div>
-                                            <div className="home__patchConf">{(p.conf ?? 0).toFixed(3)}</div>
-                                        </div>
-                                    </div>
-                                ))}
-
-                                {!results?.topPatches?.length && (
-                                    <div className="home__patchPlaceholder">No hay miniparches disponibles</div>
-                                )}
-                            </div>
+                            <div className="home__resultsPlaceholder">Vista previa no disponible</div>
                         )}
                     </div>
 
-                    {/* Panel derecho con mensaje “Seleccione un miniparche” */}
+                    {/* Panel derecho con mensaje*/}
                     <div className="home__resultsPatchPanel">
                         <h3 className="home__patchTitle">Miniparches representativos</h3>
 
@@ -553,8 +565,15 @@ export default function Home() {
                                 <div className="home__patchInfo">
                                     {/*@TODO: Equivalencia de clase de lesion a HSIL, LSIL*/}
                                     <div className="home__patchCls">{p.cls || "—"}</div>
-                                    {/* @TODO: Boton de descarga de mini parches   */}
                                 </div>
+                                {/* Botón de descarga */}
+                                <button
+                                    type="button"
+                                    className="home__downloadBtn"
+                                    onClick={() => onDownloadPatch(p.relPath)}
+                                >
+                                    <img src={downloadIcon} alt="Descargar" />
+                                </button>
                             </div>
                         ))}
 
@@ -837,6 +856,11 @@ export default function Home() {
                     </div>
                 </div>
             </Modal>
+            {showPageScrollHint && (
+                <div className="home__globalScrollHint">
+                    <div className="home__globalScrollHintCircle">↓</div>
+                </div>
+            )}
         </>
     );
 }

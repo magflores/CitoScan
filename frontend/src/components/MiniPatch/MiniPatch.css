@@ -1,5 +1,5 @@
 .miniPatch {
-    width: 224px;   /* antes 72 */
+    width: 224px;
     height: 224px;
     border-radius: 12px;
     object-fit: cover;
