@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {useEffect, useMemo, useRef, useState} from "react";
 import "./Home.css";
 import Button from "../../components/Button/Button.jsx";
 import Modal from "../../components/Modal/Modal.jsx";
@@ -16,6 +16,8 @@ import {
 } from "../../features/auth/api";
 
 import downloadIcon from "../../assets/download.svg";
+import editIcon from "../../assets/edit.svg";
+import checkIcon from "../../assets/check.svg";
 
 import MiniPatch from "../../components/MiniPatch/MiniPatch.jsx";
 
@@ -38,6 +40,8 @@ export default function Home() {
     const [sessionId, setSessionId] = useState(null);
     const [status, setStatus] = useState(null); // "QUEUED" | "RUNNING" | "DONE" | "ERROR" | null
     const [results, setResults] = useState(null);
+    const [imageName, setImageName] = useState("");
+    const [editingName, setEditingName] = useState(false);
     const [topCount, setTopCount] = useState(5);
     const [isImageUpload, setIsImageUpload] = useState(false);
     const [currentStep, setCurrentStep] = useState(0); // 0-3 para los pasos del pipeline
@@ -151,6 +155,7 @@ export default function Home() {
             setPreviewUrl(null);
         }
         setFile(f);
+        setImageName(f.name.replace(/\.[^.]+$/, ""));
         setError("");
         setSessionId(null);
         setStatus(null);
@@ -197,15 +202,18 @@ export default function Home() {
     function onInputChange(e) {
         validateAndSet(e.target.files?.[0]);
     }
+
     function onDrop(e) {
         e.preventDefault();
         setDragOver(false);
         validateAndSet(e.dataTransfer.files?.[0]);
     }
+
     function onDragOver(e) {
         e.preventDefault();
         setDragOver(true);
     }
+
     function onDragLeave() {
         setDragOver(false);
     }
@@ -390,7 +398,6 @@ export default function Home() {
     }
 
 
-
     function handleBack() {
         clearFile();
     }
@@ -414,7 +421,7 @@ export default function Home() {
     }
 
     async function onDownloadCellsZip(sessionId) {
-        try{
+        try {
             const blob = await downloadCellsZip(sessionId);
 
             const url = URL.createObjectURL(blob);
@@ -433,7 +440,7 @@ export default function Home() {
     const processingUI = (
         <div className="home__processing">
             <div className="home__status busy" aria-live="polite">
-                <img src={loaderGif} alt="" className="home__loader" />
+                <img src={loaderGif} alt="" className="home__loader"/>
             </div>
             <div className="home__pipelineSteps">
                 {pipelineSteps.map((step, index) => (
@@ -526,14 +533,41 @@ export default function Home() {
             <section className="home__results">
                 <div className="home__resultsHeader">
                     <div className="home__resultsTitleWrap">
-                        <h2 className="home__resultsTitle">Nueva imagen</h2>
-                        <button
-                            type="button"
-                            className="home__resultsTitleEdit"
-                            aria-label="Editar nombre de la imagen"
-                        >
-                            ✏️
-                        </button>
+                        {editingName ? (
+                            <>
+                                <input
+                                    type="text"
+                                    className="home__resultsTitleInput"
+                                    value={imageName}
+                                    onChange={(e) => setImageName(e.target.value)}
+                                    autoFocus
+                                />
+
+                                <button
+                                    type="button"
+                                    className="home__resultsTitleEdit"
+                                    aria-label="Confirmar nuevo nombre"
+                                    onClick={() => setEditingName(false)}
+                                >
+                                    <img src={checkIcon} alt="Confirmar" />
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <h2 className="home__resultsTitle">
+                                    {imageName || "Nueva imagen"}
+                                </h2>
+
+                                <button
+                                    type="button"
+                                    className="home__resultsTitleEdit"
+                                    aria-label="Editar nombre de la imagen"
+                                    onClick={() => setEditingName(true)}
+                                >
+                                    <img src={editIcon} alt="Editar" />
+                                </button>
+                            </>
+                        )}
                     </div>
 
                     <select
@@ -600,7 +634,7 @@ export default function Home() {
                                     className="home__downloadBtn"
                                     onClick={() => onDownloadPatch(p.rel_path)}
                                 >
-                                    <img src={downloadIcon} alt="Descargar" />
+                                    <img src={downloadIcon} alt="Descargar"/>
                                 </button>
                             </div>
                         ))}
@@ -622,13 +656,13 @@ export default function Home() {
                     </div>
 
                     <button type="button" className="text-link"
-                            onClick={ () => onDownloadCellsZip(sessionId)}
+                            onClick={() => onDownloadCellsZip(sessionId)}
                     >
                         Descargar resultados del análisis
                     </button>
 
-                    <button 
-                        type="button" 
+                    <button
+                        type="button"
                         className="text-link"
                         onClick={() => setShowStatsModal(true)}
                     >
@@ -648,7 +682,7 @@ export default function Home() {
     // Render por estados:
     return (
         <>
-            <Header mode="auth" />
+            <Header mode="auth"/>
             <div className="home">
                 {/* Solo procesamiento */}
                 {isBusy && processingUI}
@@ -685,7 +719,7 @@ export default function Home() {
                                         />
                                         {loadingPreview && (
                                             <div className="dropzone__previewLoader">
-                                                <img src={loaderGif} alt="" className="home__loader" />
+                                                <img src={loaderGif} alt="" className="home__loader"/>
                                                 <span>Cargando vista previa...</span>
                                             </div>
                                         )}
@@ -693,7 +727,7 @@ export default function Home() {
                                 ) : file ? (
                                     loadingPreview ? (
                                         <div className="dropzone__previewLoader">
-                                            <img src={loaderGif} alt="" className="home__loader" />
+                                            <img src={loaderGif} alt="" className="home__loader"/>
                                             <span>Generando vista previa...</span>
                                         </div>
                                     ) : (
@@ -794,7 +828,7 @@ export default function Home() {
                             <div className="home__welcome">
                                 <p>
                                     Bienvenido a CitoScan, tu sitio para realizar análisis de imágenes
-                                    de Papanicolau.<br />Si querés saber más sobre nosotros y cómo
+                                    de Papanicolau.<br/>Si querés saber más sobre nosotros y cómo
                                     funciona la página, <a href="/info">hacé click aquí</a>.
                                 </p>
                                 <label className="home__welcome-check">
@@ -854,9 +888,9 @@ export default function Home() {
                         {/*</div>*/}
                     </div>
                     <div className="home__statsActions">
-                        <Button 
-                            variant="outline" 
-                            tone="blue" 
+                        <Button
+                            variant="outline"
+                            tone="blue"
                             onClick={() => {
                                 // Crear objeto con las estadísticas
                                 const statsData = {
@@ -870,7 +904,7 @@ export default function Home() {
 
                                 // Convertir a JSON y descargar
                                 const jsonStr = JSON.stringify(statsData, null, 2);
-                                const blob = new Blob([jsonStr], { type: 'application/json' });
+                                const blob = new Blob([jsonStr], {type: 'application/json'});
                                 const url = URL.createObjectURL(blob);
                                 const a = document.createElement('a');
                                 a.href = url;
