@@ -11,6 +11,8 @@ import {
     getPipelineSession,
     getPipelineResults,
     fetchPipelinePreview,
+    downloadPipelinePatchZip,
+    downloadCellsZip,
 } from "../../features/auth/api";
 
 import downloadIcon from "../../assets/download.svg";
@@ -104,11 +106,6 @@ export default function Home() {
 
     function browseFile() {
         inputRef.current?.click();
-    }
-
-    function isImageFile(f) {
-        const ext = "." + f.name.split(".").pop().toLowerCase();
-        return IMG_EXT.includes(ext);
     }
 
     function stopPolling() {
@@ -398,9 +395,39 @@ export default function Home() {
         clearFile();
     }
 
-    function onDownloadPatch(relPath) {
-        console.log("Descargar parche:", relPath);
-        // TODO: implementar descarga real
+    async function onDownloadPatch(relPath) {
+        try {
+            const blob = await downloadPipelinePatchZip(sessionId, relPath);
+
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `minipatch-${relPath.replace(/\//g, "_")}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error(err);
+            alert(err.message || "No se pudo descargar el miniparche.");
+        }
+    }
+
+    async function onDownloadCellsZip(sessionId) {
+        try{
+            const blob = await downloadCellsZip(sessionId);
+
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `cells_all_${sessionId}.zip`;
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error(err);
+            alert(err.message || "No se pudieron descargar los detalles.");
+        }
     }
 
     const processingUI = (
@@ -563,14 +590,13 @@ export default function Home() {
                                 />
 
                                 <div className="home__patchInfo">
-                                    {/*@TODO: Equivalencia de clase de lesion a HSIL, LSIL*/}
                                     <div className="home__patchCls">{p.cls || "—"}</div>
                                 </div>
                                 {/* Botón de descarga */}
                                 <button
                                     type="button"
                                     className="home__downloadBtn"
-                                    onClick={() => onDownloadPatch(p.relPath)}
+                                    onClick={() => onDownloadPatch(p.rel_path)}
                                 >
                                     <img src={downloadIcon} alt="Descargar" />
                                 </button>
@@ -593,7 +619,9 @@ export default function Home() {
                         </span>
                     </div>
 
-                    <button type="button" className="text-link">
+                    <button type="button" className="text-link"
+                            onClick={ () => onDownloadCellsZip(sessionId)}
+                    >
                         Descargar resultados del análisis
                     </button>
 
@@ -800,7 +828,7 @@ export default function Home() {
                         </div>
                         <div className="home__statsItem">
                             <span className="home__statsLabel">
-                                Cantidad de miniparches descargados luego del análisis de Fondo/No Fondo:
+                                Cantidad de miniparches guardados luego del análisis de Fondo/No Fondo:
                             </span>
                             <span className="home__statsValue">
                                 {results?.notBackgroundTotal ?? "—"}
@@ -808,20 +836,20 @@ export default function Home() {
                         </div>
                         <div className="home__statsItem">
                             <span className="home__statsLabel">
-                                Cantidad de miniparches descargados luego del análisis de Apto/No Apto:
+                                Cantidad de miniparches guardados luego del análisis de Apto/No Apto:
                             </span>
                             <span className="home__statsValue">
                                 {results?.aptoTotal ?? "—"}
                             </span>
                         </div>
-                        <div className="home__statsItem">
-                            <span className="home__statsLabel">
-                                Cantidad de células utilizadas para generar el diagnóstico:
-                            </span>
-                            <span className="home__statsValue">
-                                {getCellCount ?? results?.aptoTotal ?? "—"}
-                            </span>
-                        </div>
+                        {/*<div className="home__statsItem">*/}
+                        {/*    <span className="home__statsLabel">*/}
+                        {/*        Cantidad de células utilizadas para generar el diagnóstico:*/}
+                        {/*    </span>*/}
+                        {/*    <span className="home__statsValue">*/}
+                        {/*        {getCellCount ?? results?.aptoTotal ?? "—"}*/}
+                        {/*    </span>*/}
+                        {/*</div>*/}
                     </div>
                     <div className="home__statsActions">
                         <Button 
@@ -833,7 +861,7 @@ export default function Home() {
                                     cantidadTotalMiniparchesGenerados: results?.tilesTotal ?? null,
                                     cantidadMiniparchesDespuesFondoNoFondo: results?.notBackgroundTotal ?? null,
                                     cantidadMiniparchesDespuesAptoNoApto: results?.aptoTotal ?? null,
-                                    cantidadCelulasUtilizadas: getCellCount ?? results?.aptoTotal ?? null,
+                                    // cantidadCelulasUtilizadas: getCellCount ?? results?.aptoTotal ?? null,
                                     diagnosticoPosible: results?.possibleDiagnosis ?? null,
                                     fecha: new Date().toISOString()
                                 };

@@ -51,6 +51,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/pipeline/sessions/*/preview").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/pipeline/sessions/*/results").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/pipeline/sessions/*/files/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/pipeline/sessions/*/download-patch").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/pipeline/sessions/*/download-cells").authenticated()
 
                         .anyRequest().authenticated()
                 )

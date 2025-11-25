@@ -1,8 +1,11 @@
 package org.example.citoscan.controller;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletResponse;
 import org.example.citoscan.model.PipelineSession;
 import org.example.citoscan.service.PipelineService;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.*;
@@ -13,9 +16,12 @@ import org.springframework.web.multipart.MultipartFile;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.*;
 import java.util.*;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 @RestController
 @RequestMapping("/api/pipeline")
@@ -127,4 +133,145 @@ public class PipelineController {
                 .orElse(MediaType.APPLICATION_OCTET_STREAM);
         return ResponseEntity.ok().contentType(mt).body(resource);
     }
+
+    @GetMapping("/sessions/{id}/download-patch")
+    public ResponseEntity<Resource> downloadPatchZip(
+            @PathVariable Long id,
+            @RequestParam("relPath") String relPath
+    ) throws IOException {
+
+        PipelineSession s = pipelineService.get(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sesión no encontrada"));
+
+        Path sessionDir = Paths.get(s.getStoragePath()).toAbsolutePath().normalize();
+        Path tilesRoot = sessionDir.resolve("workspace").resolve("01_tiles");
+        Path realPatch = tilesRoot.resolve(relPath).normalize();
+
+        if (!Files.exists(realPatch)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Miniparche no encontrado");
+        }
+
+        Path tp = sessionDir.resolve("artifacts").resolve("reports").resolve("top_patches.json");
+        List<Map<String, Object>> topPatches = List.of();
+
+        if (Files.exists(tp)) {
+            try {
+                ObjectMapper mapper = new ObjectMapper();
+                topPatches = mapper.readValue(
+                        Files.readString(tp),
+                        new TypeReference<List<Map<String, Object>>>() {}
+                );
+            } catch (Exception e) {
+                System.err.println("Error leyendo top_patches.json: " + e.getMessage());
+            }
+        }
+
+        Map<String, Object> patchInfo = topPatches.stream()
+                .filter(p -> relPath.equals(p.get("rel_path")))
+                .findFirst()
+                .orElse(new HashMap<>());
+
+        Map<String, Object> meta = new LinkedHashMap<>();
+        meta.put("Miniparche", realPatch.getFileName().toString());
+        meta.put("Prediccion de clase", patchInfo.getOrDefault("cls_raw", "—"));
+        meta.put("Clase normalizada", patchInfo.getOrDefault("cls", "—"));
+        meta.put("Confianza", patchInfo.getOrDefault("conf", "—"));
+        meta.put("Posicion horizontal en muestra original (pixeles)", patchInfo.getOrDefault("x", "—"));
+        meta.put("Posicion vertical en muestra original (pixeles)", patchInfo.getOrDefault("y", "—"));
+
+        byte[] metadataJson = new ObjectMapper()
+                .writerWithDefaultPrettyPrinter()
+                .writeValueAsBytes(meta);
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (ZipOutputStream zos = new ZipOutputStream(baos)) {
+
+            zos.putNextEntry(new ZipEntry(realPatch.getFileName().toString()));
+            Files.copy(realPatch, zos);
+            zos.closeEntry();
+
+            zos.putNextEntry(new ZipEntry("metadata.json"));
+            zos.write(metadataJson);
+            zos.closeEntry();
+        }
+
+        ByteArrayResource zipBytes = new ByteArrayResource(baos.toByteArray());
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"patch.zip\"")
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .contentLength(zipBytes.contentLength())
+                .body(zipBytes);
+    }
+
+    @GetMapping("/sessions/{id}/download-cells")
+    public void downloadDetectedCells(
+            @PathVariable Long id,
+            HttpServletResponse response
+    ) throws IOException {
+
+        PipelineSession s = pipelineService.get(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sesión no encontrada"));
+
+        Path sessionDir = Paths.get(s.getStoragePath()).toAbsolutePath().normalize();
+        Path workspace  = sessionDir.resolve("workspace");
+
+        Path byClassRoot = workspace.resolve("05_cells").resolve("apto").resolve("by_class");
+        Path tilesRoot   = workspace.resolve("01_tiles");
+
+        Path rawPredsDir = workspace.resolve("05_cells").resolve("apto").resolve("raw_preds");
+        Path predsCsv     = rawPredsDir.resolve("preds.csv");
+        Path detectionsCsv = rawPredsDir.resolve("detections.csv");
+
+        if (!Files.exists(byClassRoot)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No existe carpeta by_class para esta sesión.");
+        }
+
+        response.setHeader("Content-Disposition", "attachment; filename=\"cells_all.zip\"");
+        response.setContentType("application/zip");
+
+        try (ZipOutputStream zos = new ZipOutputStream(response.getOutputStream())) {
+
+            if (Files.exists(predsCsv)) {
+                zos.putNextEntry(new ZipEntry("raw_preds/preds.csv"));
+                Files.copy(predsCsv, zos);
+                zos.closeEntry();
+            }
+
+            if (Files.exists(detectionsCsv)) {
+                zos.putNextEntry(new ZipEntry("raw_preds/detections.csv"));
+                Files.copy(detectionsCsv, zos);
+                zos.closeEntry();
+            }
+
+            Files.walk(byClassRoot)
+                    .filter(Files::isRegularFile)
+                    .forEach(linkPath -> {
+                        try {
+                            Path rel = byClassRoot.relativize(linkPath);
+
+                            Path symlinkTarget = Files.readSymbolicLink(linkPath);
+
+                            if (!symlinkTarget.isAbsolute()) {
+                                symlinkTarget = linkPath.getParent().resolve(symlinkTarget).normalize();
+                            }
+
+                            if (!Files.exists(symlinkTarget)) {
+                                System.err.println("Symlink roto: " + linkPath);
+                                return;
+                            }
+
+                            String entryName = "by_class/" + rel.toString().replace("\\", "/");
+
+                            zos.putNextEntry(new ZipEntry(entryName));
+                            Files.copy(symlinkTarget, zos);
+                            zos.closeEntry();
+
+                        } catch (Exception e) {
+                            System.err.println("Error agregando symlink " + linkPath + ": " + e);
+                        }
+                    });
+        }
+    }
+
 }

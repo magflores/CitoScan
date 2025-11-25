@@ -338,6 +338,46 @@ export async function fetchPipelinePatch(sessionId: number, relPath: string): Pr
     return await res.blob();
 }
 
+export async function downloadPipelinePatchZip(sessionId: number, relPath: string): Promise<Blob> {
+    const url = joinUrl(API, `/pipeline/sessions/${sessionId}/download-patch?relPath=${encodeURIComponent(relPath)}`);
+
+    const res = await fetch(url, {
+        method: "GET",
+        credentials: "include",
+        headers: {
+            ...authHeader(),
+        },
+    });
+
+    if (!res.ok) {
+        let msg = "";
+        try { msg = await res.text(); } catch {}
+        throw { message: msg || "No se pudo descargar el ZIP del miniparche." };
+    }
+
+    return await res.blob();
+}
+
+export async function downloadCellsZip(sessionId: number): Promise<Blob> {
+    const url = joinUrl(API, `/pipeline/sessions/${sessionId}/download-cells`);
+
+    const res = await fetch(url, {
+        method: "GET",
+        headers: {
+            ...authHeader(),
+        },
+        credentials: "include",
+    });
+
+    if (!res.ok) {
+        let msg = "";
+        try { msg = await res.text(); } catch {}
+        throw { message: msg || "No se pudo descargar el ZIP de células detectadas." };
+    }
+
+    return await res.blob();
+}
+
 
 export async function fetchPipelinePreview(id: number): Promise<Blob> {
     const res = await fetch(joinUrl(API, `/pipeline/sessions/${id}/preview`), {
