@@ -541,8 +541,10 @@ export default function Home() {
                         value={String(topCount)}
                         onChange={(e) => setTopCount(Number(e.target.value))}
                     >
-                        <option value="5">5 miniparches más confiables</option>
-                        <option value="10">10 miniparches más confiables</option>
+                        <option value="5">5 miniparches</option>
+                        <option value="10">10 miniparches</option>
+                        <option value="20">20 miniparches</option>
+                        <option value="30">30 miniparches</option>
                     </select>
                 </div>
 
