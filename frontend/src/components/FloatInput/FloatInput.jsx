@@ -1,9 +1,9 @@
 import React from "react";
 import "./FloatInput.css";
 
-export default function FloatInput({id, label, type = "text", value, onChange, onBlur, autoComplete}) {
+export default function FloatInput({id, label, type = "text", value, onChange, onBlur, autoComplete, disabled, className}) {
     return (
-        <label className="fi" htmlFor={id}>
+        <label className={`fi ${className || ""}`} htmlFor={id}>
             <input
                 id={id}
                 className="fi__input"
@@ -13,7 +13,8 @@ export default function FloatInput({id, label, type = "text", value, onChange, o
                 onBlur={onBlur}
                 placeholder=" "
                 autoComplete={autoComplete}
-                required
+                disabled={disabled}
+                required={!disabled}
             />
             <span className="fi__label">{label}</span>
         </label>

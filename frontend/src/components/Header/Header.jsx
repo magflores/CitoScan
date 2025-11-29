@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {Link, NavLink, useNavigate} from "react-router-dom";
 import Button from "../Button/Button.jsx";
 import "./Header.css";
@@ -7,12 +7,35 @@ import {clearToken} from "../../features/auth/api.js";
 
 export default function Header({ mode = "public" }) {
     const navigate = useNavigate();
+    const [dropdownOpen, setDropdownOpen] = useState(false);
+    const dropdownRef = useRef(null);
 
     function onLogout() {
         clearToken();
         navigate("/login", { replace: true });
     }
 
+    function handleProfileClick() {
+        navigate("/profile");
+        setDropdownOpen(false);
+    }
+
+    // Cerrar dropdown al hacer click fuera
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setDropdownOpen(false);
+            }
+        }
+
+        if (dropdownOpen) {
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [dropdownOpen]);
 
     return (
         <header className="hdr">
@@ -35,10 +58,32 @@ export default function Header({ mode = "public" }) {
                         INFO
                     </NavLink>
 
-                    <Link to="/profile" className="hdr__avatar" aria-label="Perfil">
-                        <span className="hdr__avatarCircle">👤</span>
-                    </Link>
-                    <Button onClick={onLogout}>Cerrar sesión</Button>
+                    <div className="hdr__dropdown" ref={dropdownRef}>
+                        <button
+                            className="hdr__avatarBtn"
+                            onClick={() => setDropdownOpen(!dropdownOpen)}
+                            aria-label="Menú de usuario"
+                            aria-expanded={dropdownOpen}
+                        >
+                            <span className="hdr__avatarCircle">👤</span>
+                        </button>
+                        {dropdownOpen && (
+                            <div className="hdr__dropdownMenu">
+                                <button
+                                    className="hdr__dropdownItem"
+                                    onClick={handleProfileClick}
+                                >
+                                    Mi perfil
+                                </button>
+                                <button
+                                    className="hdr__dropdownItem"
+                                    onClick={onLogout}
+                                >
+                                    Cerrar sesión
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </nav>
             )}
         </header>

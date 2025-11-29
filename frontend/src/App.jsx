@@ -5,6 +5,7 @@ import Login from "./pages/Auth/Login/Login.jsx";
 import NotFound from "./pages/NotFound/NotFound.jsx";
 import Register from "./pages/Auth/Register/Register.jsx";
 import Home from "./pages/Home/Home.jsx";
+import Profile from "./pages/Profile/Profile.jsx";
 import {RequireAuth, PublicOnly, RootRoute, isAuthed} from "./router/Guards.jsx";
 
 export default function App() {
@@ -19,6 +20,7 @@ export default function App() {
 
             <Route element={<RequireAuth/>}>
                 <Route path="/home" element={<Home/>}/>
+                <Route path="/profile" element={<Profile/>}/>
             </Route>
 
             <Route

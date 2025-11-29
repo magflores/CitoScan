@@ -182,6 +182,31 @@ export function register(req: RegisterReq) {
     return postJSON<RegisterRes>("/users", req);
 }
 
+/** USER PROFILE **/
+
+export type UserProfile = {
+    userId?: number;
+    email?: string;
+    firstName?: string;
+    lastName?: string;
+    institution?: string;
+};
+
+export type UpdateProfileReq = {
+    firstName?: string;
+    lastName?: string;
+    password?: string;
+    institution?: string;
+};
+
+export function getCurrentUser() {
+    return getJSON<UserProfile>("/users/me");
+}
+
+export function updateProfile(req: UpdateProfileReq) {
+    return putJSON<UserProfile>("/users/me", req);
+}
+
 /** PIPELINE **/
 
 export type CreateSessionRes = {

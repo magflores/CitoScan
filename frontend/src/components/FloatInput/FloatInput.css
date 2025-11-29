@@ -42,3 +42,14 @@
 }
 
 .fi--area .fi__input { padding-top: 20px; min-height: 96px; resize: vertical; }
+
+.fi__input:disabled {
+    color: #9ca3af;
+    cursor: not-allowed;
+    background: #f9fafb;
+    border-bottom-color: #e5e7eb;
+}
+
+.fi__input:disabled + .fi__label {
+    color: #9ca3af;
+}
