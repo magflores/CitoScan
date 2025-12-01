@@ -182,6 +182,18 @@ export function register(req: RegisterReq) {
     return postJSON<RegisterRes>("/users", req);
 }
 
+export type VerifyEmailRes = {
+    message?: string;
+    userId?: number;
+    email?: string;
+    token?: string;
+    verified?: boolean;
+};
+
+export function verifyEmail(token: string) {
+    return getJSON<VerifyEmailRes>(`/users/verify-email?token=${encodeURIComponent(token)}`);
+}
+
 /** USER PROFILE **/
 
 export type UserProfile = {

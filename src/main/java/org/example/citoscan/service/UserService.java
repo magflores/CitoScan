@@ -5,8 +5,11 @@ import org.example.citoscan.dto.request.UpdateProfileRequest;
 import org.example.citoscan.dto.response.CreateUserResponse;
 import org.example.citoscan.dto.response.UserProfileResponse;
 
+import org.example.citoscan.dto.response.VerifyEmailResponse;
+
 public interface UserService {
     CreateUserResponse createUser(CreateUserRequest request);
     UserProfileResponse getCurrentUserProfile(Long userId);
     UserProfileResponse updateUserProfile(Long userId, UpdateProfileRequest request);
+    VerifyEmailResponse verifyEmail(String token);
 }

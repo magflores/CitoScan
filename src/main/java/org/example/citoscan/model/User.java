@@ -28,6 +28,15 @@ public class User {
     @Column(nullable = false)
     private String institution;
 
+    @Column(nullable = false)
+    private Boolean emailVerified = false;
+
+    @Column
+    private String verificationToken;
+
+    @Column
+    private java.time.LocalDateTime tokenExpiry;
+
     public User() {}
 
     public User(String email, String password, String firstName, String lastName, String institution) {
