@@ -108,17 +108,17 @@ export default function Register() {
                 institution: form.institution.trim(),
             });
 
-            const res = await loginApi({
-                email: form.email.trim(),
-                password: form.password,
+            setSuccessMsg("¡Cuenta creada exitosamente! Por favor, verifica tu email para activar tu cuenta.");
+            setForm({
+                firstName: "",
+                lastName: "",
+                email: "",
+                email2: "",
+                password: "",
+                password2: "",
+                institution: "",
             });
-
-            if (res?.token) {
-                setToken(res.token);
-                navigate(redirectTo, {replace: true});
-            } else {
-                setError("Cuenta creada, pero no se produjo un error iniciando sesión.");
-            }
+            setTouched({});
         } catch (err) {
             setError(err?.message ?? "No se pudo completar el registro.");
         } finally {
