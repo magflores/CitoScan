@@ -25,10 +25,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        String path = request.getRequestURI();
-        // Saltar el filtro para todas las rutas públicas
-        return path.startsWith("/api/auth/") || 
-               path.startsWith("/api/users");
+        String path = request.getServletPath();
+        String method = request.getMethod();
+
+        return ("/api/auth/login".equals(path))
+                || ("/api/users".equals(path) && "POST".equals(method))
+                || (path.startsWith("/api/users/verify-email"));
     }
 
     @Override

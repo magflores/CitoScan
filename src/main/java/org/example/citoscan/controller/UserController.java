@@ -24,7 +24,6 @@ public class UserController {
     private final UserService userService;
 
     @PostMapping
-    @PreAuthorize("permitAll()")
     public ResponseEntity<CreateUserResponse> addUser(@Valid @RequestBody CreateUserRequest request) {
         try {
             CreateUserResponse response = userService.createUser(request);
