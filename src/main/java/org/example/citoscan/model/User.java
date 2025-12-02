@@ -37,6 +37,12 @@ public class User {
     @Column
     private java.time.LocalDateTime tokenExpiry;
 
+    @Column
+    private String passwordResetToken;
+
+    @Column
+    private java.time.LocalDateTime passwordResetExpiry;
+
     public User() {}
 
     public User(String email, String password, String firstName, String lastName, String institution) {

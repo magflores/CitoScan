@@ -194,6 +194,36 @@ export function verifyEmail(token: string) {
     return getJSON<VerifyEmailRes>(`/users/verify-email?token=${encodeURIComponent(token)}`);
 }
 
+export type ForgotPasswordReq = {
+    email: string;
+};
+
+export type ForgotPasswordRes = {
+    message?: string;
+    success?: boolean;
+};
+
+export function forgotPassword(req: ForgotPasswordReq) {
+    return postJSON<ForgotPasswordRes>("/users/forgot-password", req);
+}
+
+export type ResetPasswordReq = {
+    token: string;
+    password: string;
+};
+
+export type ResetPasswordRes = {
+    message?: string;
+    userId?: number;
+    email?: string;
+    token?: string;
+    success?: boolean;
+};
+
+export function resetPassword(req: ResetPasswordReq) {
+    return postJSON<ResetPasswordRes>("/users/reset-password", req);
+}
+
 /** USER PROFILE **/
 
 export type UserProfile = {

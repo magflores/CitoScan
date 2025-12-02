@@ -76,24 +76,6 @@ export default function Home() {
         };
     }, [results, status]);
 
-
-    // Función para obtener el conteo de células del reporte JSON
-    const getCellCount = useMemo(() => {
-        if (!results?.pipelineReportJson) return null;
-        try {
-            const report = JSON.parse(results.pipelineReportJson);
-            if (report?.cells?.stats) {
-                // Intentar obtener el conteo de células desde las estadísticas
-                const stats = report.cells.stats;
-                if (typeof stats.total === 'number') return stats.total;
-                if (typeof stats.detected === 'number') return stats.detected;
-                if (typeof stats.count === 'number') return stats.count;
-            }
-        } catch (e) {
-            console.warn("No se pudo parsear el reporte JSON", e);
-        }
-        return null;
-    }, [results?.pipelineReportJson]);
     const [dragOver, setDragOver] = useState(false);
     const pollRef = useRef(null);
 

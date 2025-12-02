@@ -20,6 +20,14 @@
     color: #9b1c1c;
 }
 
+.field-success {
+    font-size: 13px;
+    color: #155724;
+    background: #d4edda;
+    padding: 12px;
+    border-radius: 8px;
+}
+
 .reg__actions {
     display: grid;
     grid-template-columns: max-content;
