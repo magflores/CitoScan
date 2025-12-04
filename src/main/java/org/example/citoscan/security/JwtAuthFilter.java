@@ -28,10 +28,18 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String path = request.getServletPath();
         String method = request.getMethod();
 
-        return ("/api/auth/login".equals(path))
-                || ("/api/users".equals(path) && "POST".equals(method))
-                || (path.startsWith("/api/users/verify-email"));
+        String normalized = path.startsWith("/api")
+                ? path.substring(4)
+                : path;
+
+        return
+                normalized.equals("/auth/login")
+                        || (normalized.equals("/users") && method.equals("POST"))
+                        || normalized.startsWith("/users/verify-email")
+                        || (normalized.equals("/users/forgot-password") && method.equals("POST"))
+                        || (normalized.equals("/users/reset-password") && method.equals("POST"));
     }
+
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -58,9 +66,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
-        } catch (Exception ex) {
-            // Token inválido/expirado: seguimos sin autenticación → caerá en 401 si la ruta es protegida
-        }
+        } catch (Exception ignored) {}
 
         filterChain.doFilter(request, response);
     }
