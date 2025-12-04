@@ -1,0 +1,23 @@
+.landing {
+    padding: 24px 0 64px;
+}
+
+.landing__container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 24px;
+}
+
+.landing__section + .landing__section { margin-top: 36px; }
+
+.landing__h2 {
+    font-size: 32px;
+    font-weight: 700;
+    margin: 0 0 12px 0;
+}
+.landing__p {
+    color: #374151;
+    font-size: 20px;
+    line-height: 1.8;
+    margin: 0;
+}

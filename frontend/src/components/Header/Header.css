@@ -1,0 +1,83 @@
+.hdr {
+    height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    border-bottom: 1px solid #e5e7eb; /* divider global */
+    background: #fff;
+}
+
+.hdr__brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; }
+.hdr__logo { width: 48px; height: 48px; border-radius: 999px; object-fit: cover; box-shadow: 0 0 0 1px rgba(0,0,0,.06); }
+.hdr__name { font-size: 32px; font-weight: 400; letter-spacing: 0.3px; }
+
+.hdr__actions { display: flex; gap: 16px; }
+
+.hdr__nav { display: flex; align-items: center; gap: 22px; }
+.hdr__tab {
+    text-decoration: none;
+    color: #111;
+    letter-spacing: .5px;
+}
+.hdr__tab.is-active { text-decoration: underline; text-underline-offset: 4px; }
+
+.hdr__avatar { margin-left: 6px; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+.hdr__avatarCircle {
+    width: 36px; height: 36px; border-radius: 999px;
+    border: 1px solid #e5e7eb; color: #374151; display: grid; place-items: center;
+}
+
+.hdr__dropdown {
+    position: relative;
+    margin-left: 6px;
+}
+
+.hdr__avatarBtn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.hdr__avatarBtn:hover .hdr__avatarCircle {
+    border-color: #d1d5db;
+    background: #f9fafb;
+}
+
+.hdr__dropdownMenu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    min-width: 160px;
+    z-index: 1000;
+    overflow: hidden;
+}
+
+.hdr__dropdownItem {
+    width: 100%;
+    padding: 12px 16px;
+    text-align: left;
+    background: transparent;
+    border: none;
+    color: #374151;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+    font-family: inherit;
+}
+
+.hdr__dropdownItem:hover {
+    background: #f9fafb;
+}
+
+.hdr__dropdownItem:first-child {
+    border-bottom: 1px solid #f3f4f6;
+}

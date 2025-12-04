@@ -1,0 +1,73 @@
+models:
+  fondo:
+    path: "models/clasificador_fondo/clasificador_fondos.keras"
+    threshold_path: "models/clasificador_fondo/optimal_threshold.txt"
+    input_size: [224, 224]
+    batch_size: 32
+
+  aptitud:
+    path: "models/clasificador_aptitud/NeuralNetwork.pkl"
+    input_size: [224, 224]
+    batch_size: 32
+
+extractor:
+  cmd:
+    - "python3"
+    - "scripts/svs_to_patches.py"
+    - "--size"
+    - "1024"
+    - "--stride"
+    - "1024"
+  tile_size: 1024
+  stride: 1024
+  options:
+    engine: "pyvips"
+    fmt: "jpg"
+    jpeg_quality: 95
+    png_compress_level: 1
+    workers: null
+    chunk_size: 256
+
+bg:
+  link_strategy: "symlink"
+
+apt:
+  link_strategy: "symlink"
+  infer_batch: 1024
+
+# cells:
+#   enabled: true
+#   source: "apto"
+#   yaml_file: "config/swinv2.yaml"
+#   checkpoint: "models/clasificador_celulas/swinv2/checkpoint/best_loss_10.pt"
+#   infer_batch: 256
+#   link_strategy: "symlink"
+
+cells:
+  enabled: true
+  source: "apto"
+  type: "yolo"
+  weights: "models/clasificador_celulas/yolo/best.pt"
+  imgsz: 512
+  conf: 0.25
+  iou: 0.45
+  # classes: [0,1,2,3,4,5,6,7]
+  infer_batch: 1
+  link_strategy: "symlink"
+  save_annot: false
+  by_class_links: true
+
+
+runtime:
+  samples_per_class: 20
+  log_dir: "resources/sessions/{session_id}/artifacts/logs"
+  reports_dir: "resources/sessions/{session_id}/artifacts/reports"
+  workspace: "resources/sessions/{session_id}/workspace"
+
+paths:
+  input: "resources/sessions/{session_id}/input"
+  tiles: "resources/sessions/{session_id}/workspace/01_tiles"
+  bg:    "resources/sessions/{session_id}/workspace/02_bg_filter"
+  feats: "resources/sessions/{session_id}/workspace/03_features"
+  apt:   "resources/sessions/{session_id}/workspace/04_aptitud"
+  cells: "resources/sessions/{session_id}/workspace/05_cells"

@@ -1,0 +1,26 @@
+.miniPatch {
+    width: 224px;
+    height: 224px;
+    border-radius: 12px;
+    object-fit: cover;
+    background: #f3f4f6;
+}
+
+.miniPatch--loading {
+    width: 72px;
+    height: 72px;
+    background: #e5e7eb;
+    border-radius: 8px;
+}
+
+.miniPatch--error {
+    width: 72px;
+    height: 72px;
+    border-radius: 8px;
+    background: #fee2e2;
+    color: #b91c1c;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}

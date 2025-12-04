@@ -1,0 +1,25 @@
+.modal__backdrop {
+    position: fixed; inset: 0;
+    background: rgba(17, 24, 39, .24);
+    display: grid; place-items: center;
+    z-index: 50;
+}
+
+.modal__card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    width: min(760px, calc(100% - 32px));
+    padding: 28px 24px;
+    position: relative;
+    box-shadow: 0 10px 30px rgba(0,0,0,.08);
+}
+
+.modal__close {
+    position: absolute; top: 10px; right: 12px;
+    border: 1px solid #e5e7eb; background: #fff; color: #6b7280;
+    width: 28px; height: 28px; border-radius: 999px;
+    display: grid; place-items: center; cursor: pointer;
+}
+
+.modal__body { color: #374151; font-size: 16px; line-height: 1.6; }
