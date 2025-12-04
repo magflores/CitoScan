@@ -52,6 +52,9 @@ public class SecurityConfig {
                     // Permitir POST a /api/users (registro) y GET a /api/users/verify-email
                     auth.requestMatchers(HttpMethod.POST, "/api/users").permitAll();
                     auth.requestMatchers("/api/users/verify-email/**").permitAll();
+                    // Permitir recuperación de contraseña
+                    auth.requestMatchers(HttpMethod.POST, "/api/users/forgot-password").permitAll();
+                    auth.requestMatchers(HttpMethod.POST, "/api/users/reset-password").permitAll();
                     
                     // Rutas protegidas específicas
                     auth.requestMatchers(HttpMethod.GET, "/api/pipeline/sessions/*/preview").authenticated();

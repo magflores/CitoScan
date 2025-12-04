@@ -56,7 +56,6 @@ export default function Login() {
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            onBlur={() => setTouched((t) => ({ ...t, email: true }))}
                             autoComplete="email"
                             disabled={loading}
                         />
@@ -69,14 +68,13 @@ export default function Login() {
                             type="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            onBlur={() => setTouched((t) => ({ ...t, password: true }))}
                             autoComplete="current-password"
                             disabled={loading}
                         />
                     </div>
                 </div>
 
-                <Link to="/forgot" className="login__link">¿Olvidaste tu contraseña?</Link>
+                <Link to="/forgot-password" className="login__link">¿Olvidaste tu contraseña?</Link>
 
                 <div className="login__actions">
                     <Button type="submit" variant="muted" tone="blue" disabled={!canSubmit || loading} className="login__submit">
