@@ -5,8 +5,8 @@ services:
       POSTGRES_DB: citoscan
       POSTGRES_USER: citoscan
       POSTGRES_PASSWORD: citoscan
-    ports:
-      - "5432:5432"
+    expose:
+      - "5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
@@ -20,53 +20,44 @@ services:
     environment:
       TF_ENABLE_ONEDNN_OPTS: "0"
       TF_CPP_MIN_LOG_LEVEL: "2"
+
+      # DB interna
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/citoscan
       SPRING_DATASOURCE_USERNAME: citoscan
       SPRING_DATASOURCE_PASSWORD: citoscan
       SERVER_PORT: 8080
-      APP_CORS_ALLOWED_ORIGINS: http://localhost,http://127.0.0.1,http://localhost:5173
+
+      APP_CORS_ALLOWED_ORIGINS: https://pf-2025b-pap3.it.itba.edu.ar
+
       PIPELINE_EXEC: http
       PIPELINE_URL: http://pipeline:5000
       PIPELINE_ROOT: /data/pipeline
+
       SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:-smtp.gmail.com}
       SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-587}
       SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME:-citoscanmailer@gmail.com}
-      SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD:-pbiuyxkibhnyejqe}
-      APP_FRONTEND_URL: ${APP_FRONTEND_URL:-http://localhost:5173}
+      SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD}
+
+      APP_FRONTEND_URL: https://pf-2025b-pap3.it.itba.edu.ar
+
     volumes:
       - ./pipeline/resources/sessions:/data/pipeline/resources/sessions
     depends_on:
       db:
         condition: service_healthy
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
 
   frontend:
     build:
       context: ./frontend
       args:
-        VITE_API_URL: http://localhost:8080/api
+        VITE_API_URL: /api
     depends_on:
       - backend
+      - pipeline
     ports:
       - "80:80"
-
-  frontend-dev:
-    build:
-      context: ./frontend
-      target: dev
-    environment:
-      VITE_API_URL: http://localhost:8080/api
-      CHOKIDAR_USEPOLLING: "true"
-    working_dir: /app
-    command: [ "npm","run","dev","--","--host","0.0.0.0","--strictPort" ]
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    ports:
-      - "5173:5173"
-    depends_on:
-      - backend
 
   pipeline:
     build:
@@ -78,10 +69,10 @@ services:
       - ./pipeline/models:/app/models:ro
       - ./pipeline/configs:/app/configs:ro
       - ./pipeline/resources/sessions:/data/pipeline/resources/sessions
-    ports:
-      - "5001:5000"
+    expose:
+      - "5000"
     depends_on:
-      - backend
+      - db
 
 volumes:
   db_data:

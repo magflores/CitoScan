@@ -33,7 +33,6 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    // Solo si alguna parte necesita inyectar AuthenticationManager
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration cfg) throws Exception {
         return cfg.getAuthenticationManager();
@@ -46,24 +45,19 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> {
-                    // Rutas completamente públicas - sin autenticación
                     auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
                     auth.requestMatchers("/api/auth/**").permitAll();
-                    // Permitir POST a /api/users (registro) y GET a /api/users/verify-email
                     auth.requestMatchers(HttpMethod.POST, "/api/users").permitAll();
                     auth.requestMatchers("/api/users/verify-email/**").permitAll();
-                    // Permitir recuperación de contraseña
                     auth.requestMatchers(HttpMethod.POST, "/api/users/forgot-password").permitAll();
                     auth.requestMatchers(HttpMethod.POST, "/api/users/reset-password").permitAll();
-                    
-                    // Rutas protegidas específicas
+
                     auth.requestMatchers(HttpMethod.GET, "/api/pipeline/sessions/*/preview").authenticated();
                     auth.requestMatchers(HttpMethod.GET, "/api/pipeline/sessions/*/results").authenticated();
                     auth.requestMatchers(HttpMethod.GET, "/api/pipeline/sessions/*/files/**").authenticated();
                     auth.requestMatchers(HttpMethod.GET, "/api/pipeline/sessions/*/download-patch").authenticated();
                     auth.requestMatchers(HttpMethod.GET, "/api/pipeline/sessions/*/download-cells").authenticated();
-                    
-                    // Todas las demás rutas requieren autenticación (incluye /api/users/me)
+
                     auth.anyRequest().authenticated();
                 })
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
@@ -74,19 +68,22 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cfg = new CorsConfiguration();
-        cfg.setAllowedOrigins(List.of(
-                "http://localhost",
-                "http://localhost:5173",
-                "http://localhost:80",
-                "http://127.0.0.1",
-                "http://127.0.0.1:5173"
-        ));
+
+        String allowed = System.getenv("APP_CORS_ALLOWED_ORIGINS");
+        if (allowed != null && !allowed.isBlank()) {
+            cfg.setAllowedOrigins(List.of(allowed.split(",")));
+        } else {
+            cfg.setAllowedOrigins(List.of("http://localhost:5173"));
+        }
+
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cfg.setAllowedHeaders(List.of("*"));
         cfg.setAllowCredentials(true);
         cfg.addExposedHeader("Content-Type");
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", cfg);
         return source;
     }
+
 }
