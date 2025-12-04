@@ -323,7 +323,7 @@ export default function Home() {
 
             if (s.status === "DONE") {
                 stopPolling();
-                setCurrentStep(4); // Marcar todos los pasos como completados (4 = todos los pasos)
+                setCurrentStep(4);
                 try {
                     const r = await getPipelineResults(id);
                     setResults(r);
@@ -334,6 +334,9 @@ export default function Home() {
                 stopPolling();
             }
         } catch (e) {
+            if (e?.status === 403 && !e?.data) {
+                return;
+            }
             setError(e.message || "No se pudo actualizar el estado.");
             stopPolling();
         }
