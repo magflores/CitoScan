@@ -71,9 +71,9 @@ public class SecurityConfig {
 
         String allowed = System.getenv("APP_CORS_ALLOWED_ORIGINS");
         if (allowed != null && !allowed.isBlank()) {
-            cfg.setAllowedOrigins(List.of(allowed.split(",")));
+            cfg.setAllowedOriginPatterns(List.of(allowed.split(",")));
         } else {
-            cfg.setAllowedOrigins(List.of("http://localhost:5173"));
+            cfg.setAllowedOriginPatterns(List.of("http://localhost:5173"));
         }
 
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
