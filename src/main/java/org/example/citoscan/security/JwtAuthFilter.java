@@ -25,20 +25,23 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        String path = request.getServletPath();
+        String uri = request.getRequestURI();
         String method = request.getMethod();
+        if (uri.startsWith("/api/auth")) return true;
 
-        String normalized = path.startsWith("/api")
-                ? path.substring(4)
-                : path;
+        if (method.equals("POST") && uri.matches("^/api/users/?$")) {
+            return true;
+        }
+        if (uri.startsWith("/api/users/verify-email")) {
+            return true;
+        }
+        if (method.equals("POST") && uri.matches("^/api/users/(forgot-password|reset-password)/?$")) {
+            return true;
+        }
 
-        return
-                normalized.equals("/auth/login")
-                        || (normalized.equals("/users") && method.equals("POST"))
-                        || normalized.startsWith("/users/verify-email")
-                        || (normalized.equals("/users/forgot-password") && method.equals("POST"))
-                        || (normalized.equals("/users/reset-password") && method.equals("POST"));
+        return false;
     }
+
 
 
     @Override
