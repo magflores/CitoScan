@@ -41,6 +41,21 @@ function normalizeError(body: unknown): ApiError {
     return {message};
 }
 
+function sanitizeFileName(name: string): string {
+    const lower = name.toLowerCase();
+    const ext = lower.includes(".") ? lower.substring(lower.lastIndexOf(".")) : "";
+
+    const safeExt = [".svs", ".png", ".jpg", ".jpeg"].includes(ext) ? ext : "";
+
+    const base = lower.replace(/\.[^.]+$/, "")
+        .replace(/[^a-z0-9_-]+/g, "_")
+        .replace(/_+/g, "_")
+        .replace(/^_+|_+$/g, "")
+        .slice(0, 80);
+
+    return base + safeExt;
+}
+
 const DEFAULT_TIMEOUT = 15000;
 
 async function handle<T>(res: Response): Promise<T> {
@@ -259,7 +274,8 @@ export type CreateSessionRes = {
 
 export async function createPipelineSession(file: File): Promise<CreateSessionRes> {
     const formData = new FormData();
-    formData.append("file", file);
+    const sanitized = sanitizeFileName(file.name);
+    formData.append("file", file, sanitized);
 
     const res = await fetch(joinUrl(API, "/pipeline/sessions"), {
         method: "POST",
@@ -287,7 +303,8 @@ export async function createPipelineSession(file: File): Promise<CreateSessionRe
 
 export async function createPipelineSessionPreview(file: File): Promise<CreateSessionRes> {
     const formData = new FormData();
-    formData.append("file", file);
+    const sanitized = sanitizeFileName(file.name);
+    formData.append("file", file, sanitized);
 
     const res = await fetch(joinUrl(API, "/pipeline/sessions/preview"), {
         method: "POST",

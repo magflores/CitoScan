@@ -117,6 +117,16 @@ export default function Home() {
         stopPolling();
     }
 
+    function sanitizeName(name) {
+        return name
+            .toLowerCase()
+            .replace(/\.[^.]+$/, "")      // remover extensión
+            .replace(/[^a-z0-9_-]+/g, "_") // reemplazar cualquier cosa rara por _
+            .replace(/_+/g, "_")           // colapsar múltiples _
+            .replace(/^_+|_+$/g, "")       // trim de guiones bajos
+            .slice(0, 80);                 // evitar rutas gigantes
+    }
+
     async function validateAndSet(f) {
         if (!f) return;
         const ext = "." + f.name.split(".").pop().toLowerCase();
@@ -137,7 +147,8 @@ export default function Home() {
             setPreviewUrl(null);
         }
         setFile(f);
-        setImageName(f.name.replace(/\.[^.]+$/, ""));
+        const sanitized = sanitizeName(f.name);
+        setImageName(sanitized);
         setError("");
         setSessionId(null);
         setStatus(null);
@@ -774,7 +785,7 @@ export default function Home() {
                                 <div className="home__fileRow">
                                     <div
                                         className={`home__filename ${loadingPreview ? 'home__filename--loading' : ''}`}
-                                        title={file.name}
+                                        title={imageName}
                                     >
                                         {file.name}
                                     </div>
