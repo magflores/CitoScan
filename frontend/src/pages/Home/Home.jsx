@@ -25,7 +25,7 @@ const LOCALSTORAGE_KEY = "cs_hide_welcome_v1";
 const ACCEPT_EXT = [".svs", ".png", ".jpg", ".jpeg"];
 const IMG_EXT = [".png", ".jpg", ".jpeg"];
 const MAX_SIZE = 5 * 1024 * 1024 * 1024;
-const POLL_MS = 2500;
+const POLL_MS = 30000;
 
 export default function Home() {
     const [hideWelcome, setHideWelcome] = useState(false);
@@ -293,21 +293,27 @@ export default function Home() {
         const interval = setInterval(() => {
             const elapsed = (Date.now() - analysisStartTime) / 1000; // segundos
 
-            // Simular progreso de pasos basado en tiempo
-            // Ajustar estos tiempos según la duración real esperada
-            if (elapsed < 10) {
+            // 1. "Generando miniparches"
+            if (elapsed < 15) {
                 setCurrentStep(0);
-            } else if (elapsed < 25) {
+            }
+            // 2. "Descartando miniparches vacíos" (FONDO)
+            else if (elapsed < 615) {
                 setCurrentStep(1);
-            } else if (elapsed < 45) {
+            }
+            // 3. "Aplicando filtro de aptitud"
+            else if (elapsed < 795) {
                 setCurrentStep(2);
-            } else {
+            }
+            // 4. "Generando diagnóstico"
+            else {
                 setCurrentStep(3);
             }
-        }, 500);
+        }, 1000);
 
         return () => clearInterval(interval);
     }, [isBusy, analysisStartTime, status]);
+
     const markers = useMemo(() => {
         if (!results?.topPatches || !Array.isArray(results.topPatches)) return [];
 
