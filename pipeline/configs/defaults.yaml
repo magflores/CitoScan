@@ -3,12 +3,15 @@ models:
     path: "models/clasificador_fondo/clasificador_fondos.keras"
     threshold_path: "models/clasificador_fondo/optimal_threshold.txt"
     input_size: [224, 224]
-    batch_size: 32
+    batch_size: 128
 
   aptitud:
     path: "models/clasificador_aptitud/NeuralNetwork.pkl"
     input_size: [224, 224]
-    batch_size: 32
+    batch_size: 256
+
+features:
+  batch_size: 128
 
 extractor:
   cmd:
@@ -25,15 +28,15 @@ extractor:
     fmt: "jpg"
     jpeg_quality: 95
     png_compress_level: 1
-    workers: null
-    chunk_size: 256
+    workers: 8
+    chunk_size: 512
 
 bg:
   link_strategy: "symlink"
 
 apt:
   link_strategy: "symlink"
-  infer_batch: 1024
+  infer_batch: 8192
 
 # cells:
 #   enabled: true

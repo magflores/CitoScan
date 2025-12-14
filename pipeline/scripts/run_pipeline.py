@@ -1,4 +1,15 @@
-import argparse, json, sys, time, subprocess, os
+import os
+
+os.environ["OMP_NUM_THREADS"] = "8"
+os.environ["TF_NUM_INTRAOP_THREADS"] = "8"
+os.environ["TF_NUM_INTEROP_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "8"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "8"
+os.environ["NUMEXPR_NUM_THREADS"] = "8"
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
+import argparse, json, sys, time, subprocess
 from pathlib import Path
 from copy import deepcopy
 import yaml
